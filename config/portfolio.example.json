@@ -1,0 +1,38 @@
+{
+  "last_updated": "2026-01-01",
+  "accounts": {
+    "main_broker": {
+      "positions": [
+        {"name": "Apple", "isin": "US0378331005", "ticker": "AAPL", "shares": 10.0, "buy_in": 178.50, "currency": "USD"},
+        {"name": "Tesla", "isin": "US88160R1014", "ticker": "TSLA", "shares": 5.0, "buy_in": 242.00, "currency": "USD"},
+        {"name": "Microsoft", "isin": "US5949181045", "ticker": "MSFT", "shares": 8.0, "buy_in": 380.00, "currency": "USD"},
+        {"name": "NVIDIA", "isin": "US67066G1040", "ticker": "NVDA", "shares": 15.0, "buy_in": 105.00, "currency": "USD"},
+        {"name": "Amazon", "isin": "US0231351067", "ticker": "AMZN", "shares": 12.0, "buy_in": 175.00, "currency": "USD"},
+        {"name": "SAP", "isin": "DE0007164600", "ticker": "SAP.DE", "shares": 20.0, "buy_in": 165.00, "currency": "EUR"},
+        {"name": "ASML", "isin": "NL0010273215", "ticker": "ASML.AS", "shares": 3.0, "buy_in": 650.00, "currency": "EUR"},
+        {"name": "Core MSCI World ETF", "isin": "IE00B4L5Y983", "ticker": "EUNL.DE", "shares": 50.0, "buy_in": 85.00, "currency": "EUR"}
+      ]
+    },
+    "second_broker": {
+      "positions": [
+        {"name": "Alphabet (A)", "isin": "US02079K3059", "ticker": "GOOGL", "shares": 6.0, "buy_in": 140.00, "currency": "USD"},
+        {"name": "Invesco Physical Gold ETC", "isin": "IE00B579F325", "ticker": "8PSG.DE", "shares": 5.0, "buy_in": 220.00, "currency": "EUR"}
+      ]
+    }
+  },
+  "bank_accounts": {
+    "checking": {"bank": "Your Bank", "value": 3000.00, "interest": 0.0, "note": "Checking account", "is_depot_cash": false},
+    "savings": {"bank": "Your Bank", "value": 10000.00, "interest": 2.5, "note": "Savings account", "is_depot_cash": false},
+    "broker_cash": {"bank": "Main Broker", "value": 5000.00, "interest": 2.0, "note": "Broker cash balance", "is_depot_cash": true}
+  },
+  "user_profile": {
+    "age": 25,
+    "country": "DE",
+    "tax_regime": "Abgeltungssteuer 26.375%",
+    "risk_tolerance": "moderate",
+    "goal": "growth",
+    "time_horizon": "long_term",
+    "monthly_income_approx": 2500,
+    "monthly_savings_rate": "moderate"
+  }
+}

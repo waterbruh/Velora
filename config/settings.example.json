@@ -1,0 +1,28 @@
+{
+  "telegram": {
+    "bot_token": "",
+    "chat_id": ""
+  },
+  "brave_search": {
+    "api_key": ""
+  },
+  "fred": {
+    "api_key": ""
+  },
+  "schedule": {
+    "briefing_days": ["monday", "thursday"],
+    "briefing_time": "07:00",
+    "monthly_report_day": 1,
+    "monthly_report_time": "09:00"
+  },
+  "claude": {
+    "command": "claude",
+    "flags": ["--print"],
+    "timeout": 1200
+  },
+  "data": {
+    "primary_source": "yfinance",
+    "fallback_source": "twelvedata",
+    "twelvedata_api_key": ""
+  }
+}

@@ -1,0 +1,362 @@
+#!/usr/bin/env python3
+"""
+claudefolio — Interactive Setup Wizard
+Guides the user through initial configuration.
+"""
+
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+CONFIG_DIR = Path(__file__).parent / "config"
+
+LANGUAGES = {
+    "de": {"name": "Deutsch", "greeting": "Willkommen bei claudefolio!"},
+    "en": {"name": "English", "greeting": "Welcome to claudefolio!"},
+}
+
+COUNTRIES = {
+    "AT": {"name": "Austria (Österreich)", "tax": "KESt 27.5%", "tax_rate": 0.275, "currency": "EUR"},
+    "DE": {"name": "Germany (Deutschland)", "tax": "Abgeltungssteuer 26.375%", "tax_rate": 0.26375, "currency": "EUR"},
+    "CH": {"name": "Switzerland (Schweiz)", "tax": "Verrechnungssteuer 35%", "tax_rate": 0.35, "currency": "CHF"},
+    "US": {"name": "United States", "tax": "Capital Gains Tax (varies)", "tax_rate": 0.20, "currency": "USD"},
+    "UK": {"name": "United Kingdom", "tax": "Capital Gains Tax 20%", "tax_rate": 0.20, "currency": "GBP"},
+    "OTHER": {"name": "Other", "tax": "Configure manually", "tax_rate": 0.0, "currency": "EUR"},
+}
+
+BANNER = """
+\033[1;36m
+     ██████╗██╗      █████╗ ██╗   ██╗██████╗ ███████╗███████╗ ██████╗ ██╗     ██╗ ██████╗
+    ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██╔════╝██╔════╝██╔═══██╗██║     ██║██╔═══██╗
+    ██║     ██║     ███████║██║   ██║██║  ██║█████╗  █████╗  ██║   ██║██║     ██║██║   ██║
+    ██║     ██║     ██╔══██║██║   ██║██║  ██║██╔══╝  ██╔══╝  ██║   ██║██║     ██║██║   ██║
+    ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝███████╗██║     ╚██████╔╝███████╗██║╚██████╔╝
+     ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝      ╚═════╝ ╚══════╝╚═╝ ╚═════╝
+\033[0m
+    \033[90mYour AI-powered personal wealth advisor\033[0m
+"""
+
+
+def clear():
+    os.system("clear" if os.name != "nt" else "cls")
+
+
+def header(title: str):
+    clear()
+    print(BANNER)
+    print(f"\033[1;37m  ── {title} ──\033[0m\n")
+
+
+def ask(prompt: str, default: str = None) -> str:
+    suffix = f" [{default}]" if default else ""
+    result = input(f"  \033[1;33m→\033[0m {prompt}{suffix}: ").strip()
+    return result if result else (default or "")
+
+
+def ask_choice(prompt: str, options: dict) -> str:
+    print(f"  \033[1;33m→\033[0m {prompt}\n")
+    keys = list(options.keys())
+    for i, (key, val) in enumerate(options.items(), 1):
+        name = val if isinstance(val, str) else val.get("name", key)
+        print(f"    \033[36m{i})\033[0m {name}")
+    print()
+    while True:
+        choice = input(f"  \033[1;33m→\033[0m Choose (1-{len(keys)}): ").strip()
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(keys):
+                return keys[idx]
+        except ValueError:
+            if choice in keys:
+                return choice
+        print(f"    \033[31mInvalid choice. Enter 1-{len(keys)}.\033[0m")
+
+
+def ask_yn(prompt: str, default: bool = True) -> bool:
+    d = "Y/n" if default else "y/N"
+    result = input(f"  \033[1;33m→\033[0m {prompt} ({d}): ").strip().lower()
+    if not result:
+        return default
+    return result in ("y", "yes", "ja", "j")
+
+
+def check_prerequisites():
+    """Check Python, Claude CLI, etc."""
+    header("Prerequisites Check")
+    errors = []
+
+    # Python version
+    v = sys.version_info
+    if v.major == 3 and v.minor >= 11:
+        print(f"  \033[32m✓\033[0m Python {v.major}.{v.minor}.{v.micro}")
+    else:
+        errors.append(f"Python 3.11+ required, found {v.major}.{v.minor}")
+        print(f"  \033[31m✗\033[0m Python {v.major}.{v.minor} (need 3.11+)")
+
+    # Claude CLI
+    claude_path = shutil.which("claude")
+    if claude_path:
+        print(f"  \033[32m✓\033[0m Claude Code CLI found")
+    else:
+        print(f"  \033[31m✗\033[0m Claude Code CLI not found")
+        errors.append("Claude Code CLI not installed. Run: npm install -g @anthropic-ai/claude-code")
+
+    # pip
+    pip_path = shutil.which("pip3") or shutil.which("pip")
+    if pip_path:
+        print(f"  \033[32m✓\033[0m pip found")
+    else:
+        errors.append("pip not found")
+        print(f"  \033[31m✗\033[0m pip not found")
+
+    if errors:
+        print(f"\n  \033[31mPlease fix these issues before continuing:\033[0m")
+        for e in errors:
+            print(f"    • {e}")
+        if not ask_yn("Continue anyway?", False):
+            sys.exit(1)
+
+    print()
+    input("  Press Enter to continue...")
+
+
+def setup_language() -> str:
+    header("Language / Sprache")
+    lang = ask_choice("Select your language:", {k: v["name"] for k, v in LANGUAGES.items()})
+    return lang
+
+
+def setup_country() -> dict:
+    header("Country & Tax Regime")
+    country = ask_choice("Select your country:", {k: v["name"] for k, v in COUNTRIES.items()})
+    return {"code": country, **COUNTRIES[country]}
+
+
+def setup_telegram() -> dict:
+    header("Telegram Bot Setup")
+    print("  To create a Telegram bot:\n")
+    print("  1. Open Telegram and search for \033[1m@BotFather\033[0m")
+    print("  2. Send \033[1m/newbot\033[0m and follow the instructions")
+    print("  3. Copy the bot token")
+    print("  4. Start a chat with your bot and send any message")
+    print("  5. Get your chat ID from: https://api.telegram.org/bot<TOKEN>/getUpdates\n")
+
+    token = ask("Bot Token")
+    chat_id = ask("Your Chat ID")
+    return {"bot_token": token, "chat_id": chat_id}
+
+
+def setup_apis() -> dict:
+    header("API Keys (optional)")
+    apis = {}
+
+    print("  These APIs improve the quality of briefings but are optional.\n")
+
+    if ask_yn("Do you have a Brave Search API key? (for news research)", False):
+        apis["brave"] = ask("Brave Search API Key")
+    else:
+        apis["brave"] = ""
+
+    if ask_yn("Do you have a FRED API key? (for US macro data, free at fred.stlouisfed.org)", False):
+        apis["fred"] = ask("FRED API Key")
+    else:
+        apis["fred"] = ""
+
+    return apis
+
+
+def setup_schedule() -> dict:
+    header("Briefing Schedule")
+
+    print("  When should claudefolio send your briefings?\n")
+    days_input = ask("Briefing days (comma-separated)", "monday,thursday")
+    days = [d.strip().lower() for d in days_input.split(",")]
+
+    time = ask("Briefing time (24h format)", "07:00")
+
+    monthly_day = ask("Monthly report day of month", "1")
+    monthly_time = ask("Monthly report time", "09:00")
+
+    return {
+        "briefing_days": days,
+        "briefing_time": time,
+        "monthly_report_day": int(monthly_day),
+        "monthly_report_time": monthly_time,
+    }
+
+
+def setup_portfolio(country: dict, lang: str):
+    header("Portfolio Setup")
+    print("  You can configure your portfolio now or later by editing")
+    print("  \033[1mconfig/portfolio.json\033[0m\n")
+
+    if not ask_yn("Set up portfolio now?", False):
+        # Copy example
+        src = CONFIG_DIR / "portfolio.example.json"
+        dst = CONFIG_DIR / "portfolio.json"
+        if not dst.exists() and src.exists():
+            shutil.copy(src, dst)
+        print("\n  \033[90mUsing example portfolio. Edit config/portfolio.json to add your positions.\033[0m")
+        return
+
+    portfolio = {
+        "last_updated": "",
+        "accounts": {},
+        "bank_accounts": {},
+        "user_profile": {
+            "country": country["code"],
+            "tax_regime": country["tax"],
+            "risk_tolerance": "medium",
+            "goal": "growth",
+            "time_horizon": "long_term",
+        },
+    }
+
+    # Add broker accounts
+    while True:
+        account_name = ask("Broker/account name (e.g. 'interactive_brokers')")
+        if not account_name:
+            break
+        portfolio["accounts"][account_name.lower().replace(" ", "_")] = {"positions": []}
+
+        # Add positions
+        print(f"\n  Add positions for {account_name} (empty name to finish):\n")
+        while True:
+            name = ask("  Stock/ETF name")
+            if not name:
+                break
+            ticker = ask("  Yahoo Finance ticker (e.g. AAPL, SAP.DE)")
+            shares = float(ask("  Number of shares", "1"))
+            buy_in = float(ask("  Buy-in price per share", "0"))
+            currency = ask("  Currency", country["currency"])
+            isin = ask("  ISIN (optional)", "")
+
+            portfolio["accounts"][account_name.lower().replace(" ", "_")]["positions"].append({
+                "name": name,
+                "isin": isin,
+                "ticker": ticker,
+                "shares": shares,
+                "buy_in": buy_in,
+                "currency": currency,
+            })
+            print(f"    \033[32m✓\033[0m Added {shares}x {name}\n")
+
+        if not ask_yn("Add another broker account?", False):
+            break
+
+    # Bank accounts
+    if ask_yn("\nAdd bank/cash accounts?", False):
+        while True:
+            name = ask("Account name (e.g. 'savings')")
+            if not name:
+                break
+            bank = ask("Bank name")
+            value = float(ask("Current balance", "0"))
+            interest = float(ask("Interest rate (%)", "0"))
+            is_depot = ask_yn("Is this a depot cash account?", False)
+
+            portfolio["bank_accounts"][name.lower().replace(" ", "_")] = {
+                "bank": bank,
+                "value": value,
+                "interest": interest,
+                "note": "",
+                "is_depot_cash": is_depot,
+            }
+            print(f"    \033[32m✓\033[0m Added {name}: {value}€\n")
+
+            if not ask_yn("Add another account?", False):
+                break
+
+    with open(CONFIG_DIR / "portfolio.json", "w") as f:
+        json.dump(portfolio, f, indent=2, ensure_ascii=False)
+
+
+def install_dependencies():
+    header("Installing Dependencies")
+    venv_path = Path(__file__).parent / "venv"
+
+    if not venv_path.exists():
+        print("  Creating virtual environment...")
+        subprocess.run([sys.executable, "-m", "venv", str(venv_path)], check=True)
+
+    pip = str(venv_path / "bin" / "pip")
+    print("  Installing packages...\n")
+    subprocess.run([pip, "install", "--prefer-binary", "-r", "requirements.txt"], check=True)
+    print(f"\n  \033[32m✓\033[0m Dependencies installed")
+
+
+def save_settings(telegram: dict, apis: dict, schedule: dict, country: dict, lang: str):
+    settings = {
+        "telegram": telegram,
+        "brave_search": {"api_key": apis.get("brave", "")},
+        "fred": {"api_key": apis.get("fred", "")},
+        "schedule": schedule,
+        "claude": {
+            "command": "claude",
+            "flags": ["--print"],
+            "timeout": 1200,
+        },
+        "data": {
+            "primary_source": "yfinance",
+            "fallback_source": "twelvedata",
+            "twelvedata_api_key": "",
+        },
+        "user": {
+            "language": lang,
+            "country": country["code"],
+            "tax_regime": country["tax"],
+            "tax_rate": country["tax_rate"],
+        },
+    }
+
+    with open(CONFIG_DIR / "settings.json", "w") as f:
+        json.dump(settings, f, indent=2, ensure_ascii=False)
+
+
+def show_summary(telegram: dict, apis: dict, schedule: dict, country: dict, lang: str):
+    header("Setup Complete!")
+    print(f"  \033[32m✓\033[0m Language: {LANGUAGES[lang]['name']}")
+    print(f"  \033[32m✓\033[0m Country: {country['name']} ({country['tax']})")
+    print(f"  \033[32m✓\033[0m Telegram: {'configured' if telegram.get('bot_token') else 'not configured'}")
+    print(f"  \033[32m✓\033[0m Brave Search: {'configured' if apis.get('brave') else 'not configured'}")
+    print(f"  \033[32m✓\033[0m FRED API: {'configured' if apis.get('fred') else 'not configured'}")
+    print(f"  \033[32m✓\033[0m Briefings: {', '.join(schedule['briefing_days'])} at {schedule['briefing_time']}")
+    print()
+    print("  \033[1mNext steps:\033[0m")
+    print("  1. Edit \033[1mconfig/portfolio.json\033[0m with your positions (if not done)")
+    print("  2. Make sure Claude Code CLI is authenticated: \033[1mclaude --print 'test'\033[0m")
+    print("  3. Test a briefing: \033[1m./venv/bin/python -m src.main briefing\033[0m")
+    print("  4. Start the Telegram bot: \033[1m./venv/bin/python -m src.main bot\033[0m")
+    print()
+    print("  \033[90mFull documentation: README.md\033[0m")
+    print()
+
+
+def main():
+    clear()
+    print(BANNER)
+    print("  \033[1mInteractive Setup\033[0m\n")
+    input("  Press Enter to start...")
+
+    check_prerequisites()
+    lang = setup_language()
+    country = setup_country()
+    telegram = setup_telegram()
+    apis = setup_apis()
+    schedule = setup_schedule()
+
+    # Create dirs
+    (Path(__file__).parent / "memory").mkdir(exist_ok=True)
+    (Path(__file__).parent / "logs").mkdir(exist_ok=True)
+
+    save_settings(telegram, apis, schedule, country, lang)
+    setup_portfolio(country, lang)
+    install_dependencies()
+    show_summary(telegram, apis, schedule, country, lang)
+
+
+if __name__ == "__main__":
+    main()

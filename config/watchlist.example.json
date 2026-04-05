@@ -1,0 +1,7 @@
+{
+  "watchlist": [
+    {"ticker": "TSLA", "name": "Tesla"},
+    {"ticker": "ROCHE.SW", "name": "Roche"}
+  ],
+  "last_updated": "2026-01-01"
+}
