@@ -188,18 +188,157 @@ def setup_schedule() -> dict:
     }
 
 
+def parse_csv_value(val: str) -> float:
+    """Parst einen Wert aus CSV — behandelt €, $, Komma als Dezimal, etc."""
+    if not val or not isinstance(val, str):
+        return 0.0
+    val = val.strip().replace("€", "").replace("$", "").replace("%", "").strip()
+    # Deutsches Format: "2.573,26" → "2573.26"
+    if "," in val and "." in val:
+        val = val.replace(".", "").replace(",", ".")
+    elif "," in val:
+        val = val.replace(",", ".")
+    try:
+        return float(val)
+    except ValueError:
+        return 0.0
+
+
+def detect_csv_columns(headers: list[str]) -> dict:
+    """Erkennt automatisch welche Spalte was ist anhand der Header-Namen."""
+    mapping = {}
+    header_lower = [h.lower().strip() for h in headers]
+
+    for i, h in enumerate(header_lower):
+        if h in ("name", "bezeichnung", "title", "stock"):
+            mapping["name"] = i
+        elif h in ("isin",):
+            mapping["isin"] = i
+        elif h in ("stück", "stk", "shares", "quantity", "anzahl", "menge"):
+            mapping["shares"] = i
+        elif h in ("buy in", "buy_in", "kaufkurs", "einkaufspreis", "avg price", "einstandskurs"):
+            mapping["buy_in"] = i
+        elif h in ("wert", "value", "marktwert", "current value"):
+            mapping["value"] = i
+        elif h in ("profit", "gewinn", "p/l", "pnl", "gain/loss"):
+            mapping["profit"] = i
+        elif h in ("konto-name", "konto", "account", "kontoname"):
+            mapping["account_name"] = i
+        elif h in ("bank",):
+            mapping["bank"] = i
+        elif h in ("zinsen", "interest", "zins"):
+            mapping["interest"] = i
+        elif h in ("notiz", "note", "notes", "bemerkung"):
+            mapping["note"] = i
+
+    return mapping
+
+
+def import_portfolio_csv(csv_path: str, account_name: str) -> list[dict]:
+    """Importiert Positionen aus einer CSV-Datei."""
+    import csv
+
+    positions = []
+    with open(csv_path, encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        headers = next(reader)
+        col_map = detect_csv_columns(headers)
+
+        if "name" not in col_map and "isin" not in col_map:
+            # Versuche Spaltenreihenfolge zu raten
+            print(f"    \033[33m⚠\033[0m Could not auto-detect columns. Headers: {headers}")
+            return []
+
+        for row in reader:
+            if not row or all(not cell.strip() for cell in row):
+                continue
+
+            name = row[col_map["name"]].strip() if "name" in col_map else ""
+            isin = row[col_map["isin"]].strip() if "isin" in col_map else ""
+            shares = parse_csv_value(row[col_map["shares"]]) if "shares" in col_map else 0
+            buy_in = parse_csv_value(row[col_map["buy_in"]]) if "buy_in" in col_map else 0
+
+            if not name and not isin:
+                continue
+            if shares <= 0:
+                continue
+
+            # Währung raten: US-ISIN = USD, sonst EUR
+            currency = "USD" if isin.startswith("US") else "EUR"
+
+            positions.append({
+                "name": name or isin,
+                "isin": isin,
+                "ticker": "",  # User muss Ticker manuell hinzufügen oder wir raten
+                "shares": shares,
+                "buy_in": buy_in,
+                "currency": currency,
+            })
+            print(f"    \033[32m✓\033[0m {shares:.2f}x {name or isin} (Buy-In: {buy_in:.2f})")
+
+    return positions
+
+
+def import_cash_csv(csv_path: str) -> dict:
+    """Importiert Bankkonten aus einer CSV-Datei."""
+    import csv
+
+    accounts = {}
+    with open(csv_path, encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        headers = next(reader)
+        col_map = detect_csv_columns(headers)
+
+        for row in reader:
+            if not row or all(not cell.strip() for cell in row):
+                continue
+
+            name = row[col_map.get("account_name", 0)].strip() if col_map.get("account_name") is not None else row[0].strip()
+            bank = row[col_map["bank"]].strip() if "bank" in col_map else ""
+            value = parse_csv_value(row[col_map.get("value", col_map.get("account_name", 2))]) if len(row) > 2 else 0
+
+            # Wert-Spalte finden: suche nach der Spalte mit €-Zeichen
+            for i, cell in enumerate(row):
+                if "€" in cell and i != col_map.get("account_name"):
+                    value = parse_csv_value(cell)
+                    break
+
+            interest = parse_csv_value(row[col_map["interest"]]) if "interest" in col_map else 0
+            note = row[col_map["note"]].strip() if "note" in col_map and col_map["note"] < len(row) else ""
+
+            if not name:
+                continue
+
+            key = name.lower().replace(" ", "_").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
+            is_depot = any(w in name.lower() for w in ["abrechnung", "settlement", "depot", "trade republic cash"])
+
+            accounts[key] = {
+                "bank": bank,
+                "value": value,
+                "interest": interest,
+                "note": note,
+                "is_depot_cash": is_depot,
+            }
+            print(f"    \033[32m✓\033[0m {name}: {value:.2f}€ ({bank})")
+
+    return accounts
+
+
 def setup_portfolio(country: dict, lang: str):
     header("Portfolio Setup")
-    print("  You can configure your portfolio now or later by editing")
-    print("  \033[1mconfig/portfolio.json\033[0m\n")
 
-    if not ask_yn("Set up portfolio now?", False):
-        # Copy example
+    mode = ask_choice("How do you want to set up your portfolio?", {
+        "csv": "Import from CSV files (recommended)",
+        "manual": "Enter positions manually",
+        "skip": "Skip — configure later",
+    })
+
+    if mode == "skip":
         src = CONFIG_DIR / "portfolio.example.json"
         dst = CONFIG_DIR / "portfolio.json"
         if not dst.exists() and src.exists():
             shutil.copy(src, dst)
-        print("\n  \033[90mUsing example portfolio. Edit config/portfolio.json to add your positions.\033[0m")
+        print("\n  \033[90mEdit config/portfolio.json later to add your positions.\033[0m")
         return
 
     portfolio = {
@@ -215,40 +354,80 @@ def setup_portfolio(country: dict, lang: str):
         },
     }
 
-    # Add broker accounts
-    while True:
-        account_name = ask("Broker/account name (e.g. 'interactive_brokers')")
-        if not account_name:
-            break
-        portfolio["accounts"][account_name.lower().replace(" ", "_")] = {"positions": []}
+    if mode == "csv":
+        print("\n  \033[1mCSV Import\033[0m")
+        print("  Supported formats: Trade Republic, Erste Bank, Interactive Brokers,")
+        print("  or any CSV with columns: Name, ISIN, Stück/Shares, Buy In\n")
 
-        # Add positions
-        print(f"\n  Add positions for {account_name} (empty name to finish):\n")
         while True:
-            name = ask("  Stock/ETF name")
-            if not name:
+            account_name = ask("Broker/account name (e.g. 'trade_republic')")
+            if not account_name:
                 break
-            ticker = ask("  Yahoo Finance ticker (e.g. AAPL, SAP.DE)")
-            shares = float(ask("  Number of shares", "1"))
-            buy_in = float(ask("  Buy-in price per share", "0"))
-            currency = ask("  Currency", country["currency"])
-            isin = ask("  ISIN (optional)", "")
 
-            portfolio["accounts"][account_name.lower().replace(" ", "_")]["positions"].append({
-                "name": name,
-                "isin": isin,
-                "ticker": ticker,
-                "shares": shares,
-                "buy_in": buy_in,
-                "currency": currency,
-            })
-            print(f"    \033[32m✓\033[0m Added {shares}x {name}\n")
+            csv_path = ask("Path to portfolio CSV file")
+            if not csv_path or not Path(csv_path).exists():
+                print(f"    \033[31mFile not found: {csv_path}\033[0m")
+                continue
 
-        if not ask_yn("Add another broker account?", False):
-            break
+            print(f"\n  Importing {csv_path}...\n")
+            positions = import_portfolio_csv(csv_path, account_name)
 
-    # Bank accounts
-    if ask_yn("\nAdd bank/cash accounts?", False):
+            if positions:
+                portfolio["accounts"][account_name.lower().replace(" ", "_")] = {"positions": positions}
+                print(f"\n  \033[32m✓ Imported {len(positions)} positions for {account_name}\033[0m\n")
+
+                # Ticker-Zuordnung
+                print("  \033[33mNote:\033[0m Yahoo Finance tickers need to be added.")
+                print("  Edit config/portfolio.json and add tickers (e.g. AAPL, SAP.DE, ASML.AS)\n")
+            else:
+                print(f"    \033[31mCould not parse CSV. Check the format.\033[0m")
+
+            if not ask_yn("Import another broker account?", False):
+                break
+
+        # Cash CSV
+        if ask_yn("\nImport bank/cash accounts from CSV?", False):
+            csv_path = ask("Path to cash CSV file")
+            if csv_path and Path(csv_path).exists():
+                print(f"\n  Importing {csv_path}...\n")
+                cash_accounts = import_cash_csv(csv_path)
+                portfolio["bank_accounts"] = cash_accounts
+                print(f"\n  \033[32m✓ Imported {len(cash_accounts)} accounts\033[0m\n")
+
+    elif mode == "manual":
+        # Add broker accounts manually
+        while True:
+            account_name = ask("Broker/account name (e.g. 'interactive_brokers')")
+            if not account_name:
+                break
+            portfolio["accounts"][account_name.lower().replace(" ", "_")] = {"positions": []}
+
+            print(f"\n  Add positions for {account_name} (empty name to finish):\n")
+            while True:
+                name = ask("  Stock/ETF name")
+                if not name:
+                    break
+                ticker = ask("  Yahoo Finance ticker (e.g. AAPL, SAP.DE)")
+                shares = float(ask("  Number of shares", "1"))
+                buy_in = float(ask("  Buy-in price per share", "0"))
+                currency = ask("  Currency", country["currency"])
+                isin = ask("  ISIN (optional)", "")
+
+                portfolio["accounts"][account_name.lower().replace(" ", "_")]["positions"].append({
+                    "name": name,
+                    "isin": isin,
+                    "ticker": ticker,
+                    "shares": shares,
+                    "buy_in": buy_in,
+                    "currency": currency,
+                })
+                print(f"    \033[32m✓\033[0m Added {shares}x {name}\n")
+
+            if not ask_yn("Add another broker account?", False):
+                break
+
+    # Bank accounts (manual, wenn nicht via CSV)
+    if not portfolio["bank_accounts"] and ask_yn("\nAdd bank/cash accounts?", False):
         while True:
             name = ask("Account name (e.g. 'savings')")
             if not name:
