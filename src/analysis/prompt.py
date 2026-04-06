@@ -59,6 +59,7 @@ WICHTIGE REGELN:
 
 9. RISIKO-PROFIL DES NUTZERS:
    - {user_profile}
+   - WICHTIG: Auch bei hoher Risikotoleranz — sei KONSERVATIV mit Empfehlungen. Kapitalerhalt geht vor Rendite. Empfehle NIE mehr als 5-10% des Portfolios in einer einzelnen Aktion zu bewegen. Bei Unsicherheit: lieber abwarten.
 """
 
 

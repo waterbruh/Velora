@@ -22,7 +22,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.data.market import collect_all_market_data, fetch_price_data, get_all_tickers, load_portfolio, fetch_insider_activity
 from src.data.macro import collect_all_macro_data
 from src.data.news import collect_all_news, search_position_news
-from src.data.calendar import fetch_earnings_calendar, format_earnings_calendar
+from src.data.calendar import (
+    fetch_earnings_calendar,
+    get_market_status,
+    get_upcoming_macro_events,
+    format_full_calendar,
+)
 from src.analysis.prompt import (
     build_system_prompt,
     build_briefing_prompt,
@@ -89,9 +94,11 @@ async def run_briefing():
         tickers = get_all_tickers(portfolio)
         news = collect_all_news(tickers, settings.get("brave_search", {}).get("api_key", ""))
 
-        logger.info("Sammle Earnings-Kalender...")
+        logger.info("Sammle Kalender-Daten...")
         earnings = fetch_earnings_calendar(tickers)
-        earnings_str = format_earnings_calendar(earnings)
+        market_status = get_market_status()
+        macro_events = get_upcoming_macro_events(days_ahead=30)
+        calendar_str = format_full_calendar(market_status, earnings, macro_events)
 
         # 2. Performance & Analytics
         logger.info("Berechne Performance-Metriken...")
@@ -111,9 +118,9 @@ async def run_briefing():
         # Zusätzliche Sektionen anhängen
         extra = f"""
 
-=== EARNINGS-KALENDER ===
+=== FINANZKALENDER (Börsen, Earnings, Makro-Events) ===
 
-{earnings_str}
+{calendar_str}
 
 === BENCHMARK-VERGLEICH ===
 
