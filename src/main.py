@@ -92,7 +92,11 @@ async def run_briefing():
 
         logger.info("Sammle News...")
         tickers = get_all_tickers(portfolio)
-        news = collect_all_news(tickers, settings.get("brave_search", {}).get("api_key", ""))
+        news = collect_all_news(
+            tickers,
+            brave_api_key=settings.get("brave_search", {}).get("api_key", ""),
+            finnhub_api_key=settings.get("finnhub", {}).get("api_key", ""),
+        )
 
         logger.info("Sammle Kalender-Daten...")
         earnings = fetch_earnings_calendar(tickers)

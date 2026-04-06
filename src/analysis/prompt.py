@@ -364,7 +364,25 @@ def build_briefing_prompt(portfolio: dict, market_data: dict, macro_data: dict, 
     if fg:
         fg_str = f"Score: {fg.get('value')} ({fg.get('rating')}) | Vorwoche: {fg.get('previous_1_week')} | Vormonat: {fg.get('previous_1_month')}"
 
-    return BRIEFING_TEMPLATE.format(
+    # Bloomberg Headlines
+    bloomberg = news.get("bloomberg_headlines", [])
+    bloomberg_str = "\n".join(f"- [{b.get('published', '?')}] {b['title']}" for b in bloomberg) if bloomberg else "Nicht verfügbar."
+
+    # Sentiment-Daten
+    sentiment = news.get("sentiment", {})
+    sentiment_str = "Nicht verfügbar."
+    if sentiment:
+        lines = []
+        for ticker, s in sentiment.items():
+            bull = s.get("bullish")
+            bear = s.get("bearish")
+            buzz = s.get("buzz_volume")
+            if bull is not None:
+                lines.append(f"  {ticker}: {bull:.0%} bullish / {bear:.0%} bearish (Artikel letzte Woche: {buzz or '?'})")
+        if lines:
+            sentiment_str = "\n".join(lines)
+
+    base = BRIEFING_TEMPLATE.format(
         date=datetime.now().strftime("%Y-%m-%d %H:%M"),
         portfolio_summary=build_portfolio_summary(portfolio, market_data),
         market_data=format_market_data(market_data),
@@ -376,6 +394,19 @@ def build_briefing_prompt(portfolio: dict, market_data: dict, macro_data: dict, 
         opportunities=format_news(news, "opportunities"),
         memory_context=memory_context,
     )
+
+    # Bloomberg + Sentiment anhängen
+    extra = f"""
+
+=== BLOOMBERG HEADLINES ===
+
+{bloomberg_str}
+
+=== SENTIMENT-ANALYSE (Finnhub) ===
+
+{sentiment_str}
+"""
+    return base + extra
 
 
 def build_ticker_analysis_prompt(ticker: str, ticker_data: dict, portfolio: dict, market_data: dict, news: list) -> str:
