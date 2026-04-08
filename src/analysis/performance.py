@@ -4,6 +4,7 @@ Performance-Tracking: Benchmark-Vergleich, Recommendation-Tracking, Tax-Loss-Har
 
 import json
 import logging
+import math
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +21,8 @@ def compute_benchmark_data(market_data: dict) -> list:
     for name in ["S&P 500", "NASDAQ", "DAX", "ATX", "Euro Stoxx 50", "Gold", "BTC/USD"]:
         if name in indices:
             change = indices[name].get("change_pct", 0)
+            if change is None or (isinstance(change, float) and math.isnan(change)):
+                change = 0.0
             benchmarks.append({"name": name, "change_pct": change})
 
     benchmarks.sort(key=lambda x: x["change_pct"], reverse=True)
@@ -36,6 +39,9 @@ def calculate_benchmark_comparison(market_data: dict) -> str:
     lines = ["BENCHMARK-VERGLEICH (Wochenperformance):"]
     for b in benchmarks:
         change = b["change_pct"]
+        if math.isnan(change):
+            lines.append(f"  {b['name']:20s}: n/a")
+            continue
         bar = "+" * int(abs(change)) if change > 0 else "-" * int(abs(change))
         lines.append(f"  {b['name']:20s}: {change:+.2f}% {bar}")
 

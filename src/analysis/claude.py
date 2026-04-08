@@ -19,6 +19,7 @@ def ask_claude(system_prompt: str, user_prompt: str, timeout: int = 1200) -> dic
     """
     # Claude CLI finden: Settings > shutil.which > bekannte Pfade > fallback
     import shutil
+    import os
     claude_bin = "claude"
     try:
         settings_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
@@ -27,12 +28,33 @@ def ask_claude(system_prompt: str, user_prompt: str, timeout: int = 1200) -> dic
         claude_bin = settings.get("claude", {}).get("command", "claude")
     except Exception:
         pass
-    if claude_bin == "claude":
+    # Wenn kein absoluter Pfad konfiguriert, systematisch suchen
+    if claude_bin == "claude" or not Path(claude_bin).is_absolute():
         found = shutil.which("claude")
         if found:
             claude_bin = found
-        elif Path("/usr/local/bin/claude").exists():
-            claude_bin = "/usr/local/bin/claude"
+        else:
+            # Gängige Installationspfade durchsuchen (Cron/Systemd haben minimalen PATH)
+            home = Path.home()
+            candidate_paths = [
+                home / ".local" / "bin" / "claude",
+                home / ".npm-global" / "bin" / "claude",
+                Path("/usr/local/bin/claude"),
+                Path("/usr/bin/claude"),
+                Path("/snap/bin/claude"),
+            ]
+            # nvm-Versionen durchsuchen
+            nvm_dir = home / ".nvm" / "versions" / "node"
+            if nvm_dir.exists():
+                for node_ver in sorted(nvm_dir.iterdir(), reverse=True):
+                    candidate_paths.append(node_ver / "bin" / "claude")
+            for candidate in candidate_paths:
+                if candidate.exists() and os.access(candidate, os.X_OK):
+                    claude_bin = str(candidate)
+                    logger.info(f"Claude CLI gefunden: {claude_bin}")
+                    break
+            else:
+                logger.warning(f"Claude CLI nicht in bekannten Pfaden gefunden. Versuche 'claude' direkt.")
 
     cmd = [
         claude_bin,
