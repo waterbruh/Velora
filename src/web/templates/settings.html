@@ -84,9 +84,30 @@
     </div>
 </div>
 
-<!-- Steuer -->
+<!-- Währung & Steuer -->
 <div class="card" style="margin-bottom: 16px;">
-    <div class="card-title">Steuer</div>
+    <div class="card-title">Währung & Steuer</div>
+    <div style="margin-bottom: 14px;">
+        <label class="field-label">Standard-Währung beim Trade-Logging</label>
+        <div style="display: flex; gap: 10px;">
+            {% set cur_mode = settings.get('user', {}).get('default_currency', 'EUR') %}
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="default_currency" value="EUR" {% if cur_mode == 'EUR' %}checked{% endif %}>
+                EUR
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="default_currency" value="USD" {% if cur_mode == 'USD' %}checked{% endif %}>
+                USD
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="default_currency" value="mixed" {% if cur_mode == 'mixed' %}checked{% endif %}>
+                Mixed
+            </label>
+        </div>
+    </div>
     <div>
         <label class="field-label">KESt-Berechnung</label>
         <div style="display: flex; gap: 10px;">
@@ -202,7 +223,7 @@ function saveSettings(e) {
     const days = fd.get('briefing_days').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
 
     const data = {
-        user: { language: fd.get('language'), kest_mode: fd.get('kest_mode') },
+        user: { language: fd.get('language'), kest_mode: fd.get('kest_mode'), default_currency: fd.get('default_currency') },
         telegram: { bot_token: fd.get('telegram_bot_token'), chat_id: fd.get('telegram_chat_id') },
         brave_search: { api_key: fd.get('brave_api_key') },
         fred: { api_key: fd.get('fred_api_key') },

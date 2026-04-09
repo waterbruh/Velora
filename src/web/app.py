@@ -137,9 +137,12 @@ async def portfolio_page(request: Request):
     market_data = get_market_data()
     overview = compute_portfolio_overview(portfolio, market_data)
     cache_status = get_cache_status()
+    settings = _load_settings()
+    default_currency = settings.get("user", {}).get("default_currency", "EUR")
 
     return templates.TemplateResponse(request, "portfolio.html", _ctx(request, "portfolio",
         overview=overview, portfolio_raw=portfolio, cache_status=cache_status,
+        default_currency=default_currency,
     ))
 
 
@@ -313,6 +316,7 @@ async def api_log_trade(request: Request):
     action = body.get("action")
     ticker = body.get("ticker", "").strip().upper()
     account = body.get("account", "")
+    trade_currency = body.get("trade_currency", "EUR")
 
     try:
         shares = float(body.get("shares", 0))
@@ -327,30 +331,39 @@ async def api_log_trade(request: Request):
     if shares <= 0 or price <= 0:
         return JSONResponse({"error": "shares und price müssen > 0 sein"}, status_code=400)
 
+    # USD → EUR umrechnen für buy_in_eur und Cash-Tracking
+    price_eur = price
+    if trade_currency == "USD":
+        from src.data.cache import get_market_data as _get_md
+        md = _get_md()
+        eur_usd = md.get("indices", {}).get("EUR/USD", {}).get("value", 1.0) or 1.0
+        price_eur = price / eur_usd
+
     from src.delivery.telegram import update_portfolio_position, close_recommendation_on_trade
 
     portfolio = load_portfolio()
     if account not in portfolio.get("accounts", {}):
         return JSONResponse({"error": f"Account '{account}' nicht gefunden"}, status_code=404)
 
-    success = update_portfolio_position(action, ticker, shares, price)
+    success = update_portfolio_position(action, ticker, shares, price_eur)
     if success:
         close_recommendation_on_trade(ticker, action)
-        return JSONResponse({"status": "ok", "message": f"{shares}x {ticker} {'gekauft' if action == 'buy' else 'verkauft'} @ {price}"})
+        currency_sym = '€' if trade_currency == 'EUR' else '$'
+        return JSONResponse({"status": "ok", "message": f"{shares}x {ticker} {'gekauft' if action == 'buy' else 'verkauft'} @ {price}{currency_sym}"})
     else:
         # Position nicht gefunden — bei Kauf neue Position anlegen
         if action == "buy":
             portfolio = load_portfolio()
             if account in portfolio["accounts"]:
-                currency = "USD" if not any(c in ticker for c in [".", "AT0"]) else "EUR"
+                pos_currency = "USD" if not any(c in ticker for c in [".", "AT0"]) else "EUR"
                 new_pos = {
                     "name": ticker,
                     "isin": "",
                     "ticker": ticker,
                     "shares": shares,
-                    "buy_in": price,
-                    "buy_in_eur": price,
-                    "currency": currency,
+                    "buy_in": price_eur,
+                    "buy_in_eur": price_eur,
+                    "currency": pos_currency,
                 }
                 portfolio["accounts"][account]["positions"].append(new_pos)
                 from datetime import datetime
@@ -442,6 +455,8 @@ async def api_save_settings(request: Request):
             settings["user"]["language"] = user["language"]
         if "kest_mode" in user:
             settings["user"]["kest_mode"] = user["kest_mode"]
+        if "default_currency" in user:
+            settings["user"]["default_currency"] = user["default_currency"]
     if "schedule" in body:
         sched = body["schedule"]
         settings.setdefault("schedule", {})
