@@ -386,7 +386,7 @@ async def api_close_recommendation(request: Request):
     for r in recs:
         if r.get("status") == "open" and (r.get("ticker") == ticker or r.get("ticker", "").split(".")[0] == ticker):
             r["status"] = status
-            r["outcome"] = body.get("outcome", f"Manuell geschlossen ({status})")
+            r["outcome"] = body.get("outcome")
             found = True
 
     if found:
