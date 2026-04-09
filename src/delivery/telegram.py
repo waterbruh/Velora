@@ -175,10 +175,15 @@ def update_portfolio_position(action: str, ticker: str, shares: float, price: fl
             if (pos_ticker and (pos_ticker == ticker or pos_ticker.split(".")[0] == ticker)) \
                or ticker in pos_name.upper():
                 if action == "buy":
-                    old_total = pos["shares"] * pos["buy_in"]
-                    new_total = old_total + (shares * (price or pos["buy_in"]))
+                    # Durchschnittlichen Einstandskurs (EUR) neu berechnen
+                    old_buy_in_eur = pos.get("buy_in_eur") or pos["buy_in"]
+                    old_total_eur = pos["shares"] * old_buy_in_eur
+                    new_total_eur = old_total_eur + (shares * (price or old_buy_in_eur))
                     pos["shares"] += shares
-                    pos["buy_in"] = new_total / pos["shares"]
+                    pos["buy_in_eur"] = round(new_total_eur / pos["shares"], 4)
+                    # buy_in (Originalwährung) auch updaten
+                    old_total = pos["shares"] * pos.get("buy_in", old_buy_in_eur)
+                    pos["buy_in"] = round(new_total_eur / pos["shares"], 4)
                     updated = True
                     matched_account = account_name
                     break

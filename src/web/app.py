@@ -92,15 +92,20 @@ templates.env.filters["pct"] = format_pct
 templates.env.filters["number"] = format_number
 
 
-def _get_lang() -> str:
-    """Liest die Sprache aus settings.json."""
+def _load_settings() -> dict:
+    """Liest settings.json."""
     try:
         import json as _json
         settings_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
         with open(settings_path) as f:
-            return _json.load(f).get("user", {}).get("language", "de")
+            return _json.load(f)
     except Exception:
-        return "de"
+        return {}
+
+
+def _get_lang() -> str:
+    """Liest die Sprache aus settings.json."""
+    return _load_settings().get("user", {}).get("language", "de")
 
 
 def _ctx(request, page: str, **extra) -> dict:
@@ -147,9 +152,12 @@ async def analysis_page(request: Request):
     cache_status = get_cache_status()
     benchmarks = compute_benchmark_data(market_data)
     tax_loss = compute_tax_loss_data(portfolio, market_data) if market_data.get("positions") else None
+    settings = _load_settings()
+    kest_mode = settings.get("user", {}).get("kest_mode", "per_account")
 
     return templates.TemplateResponse(request, "analysis.html", _ctx(request, "analysis",
-        overview=overview, snapshots=snapshots, cache_status=cache_status, benchmarks=benchmarks, tax_loss=tax_loss,
+        overview=overview, snapshots=snapshots, cache_status=cache_status, benchmarks=benchmarks,
+        tax_loss=tax_loss, kest_mode=kest_mode,
     ))
 
 
@@ -335,14 +343,16 @@ async def api_log_trade(request: Request):
             portfolio = load_portfolio()
             if account in portfolio["accounts"]:
                 currency = "USD" if not any(c in ticker for c in [".", "AT0"]) else "EUR"
-                portfolio["accounts"][account]["positions"].append({
+                new_pos = {
                     "name": ticker,
                     "isin": "",
                     "ticker": ticker,
                     "shares": shares,
                     "buy_in": price,
+                    "buy_in_eur": price,
                     "currency": currency,
-                })
+                }
+                portfolio["accounts"][account]["positions"].append(new_pos)
                 from datetime import datetime
                 portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
                 config_path = Path(__file__).parent.parent.parent / "config" / "portfolio.json"
@@ -430,6 +440,8 @@ async def api_save_settings(request: Request):
         settings.setdefault("user", {})
         if "language" in user:
             settings["user"]["language"] = user["language"]
+        if "kest_mode" in user:
+            settings["user"]["kest_mode"] = user["kest_mode"]
     if "schedule" in body:
         sched = body["schedule"]
         settings.setdefault("schedule", {})

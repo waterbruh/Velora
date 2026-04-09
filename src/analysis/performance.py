@@ -119,6 +119,34 @@ def compute_tax_loss_data(portfolio: dict, market_data: dict, tax_rate: float = 
     net_after_harvesting = (total_gains + total_losses) * tax_rate
     tax_savings = potential_tax - max(0, net_after_harvesting)
 
+    # Per-Account Aufschlüsselung
+    account_data = {}
+    for entry in gains + losses:
+        acc = entry["account"]
+        if acc not in account_data:
+            account_data[acc] = {"gains": [], "losses": []}
+        if entry["pnl_eur"] > 0:
+            account_data[acc]["gains"].append(entry)
+        else:
+            account_data[acc]["losses"].append(entry)
+
+    per_account = {}
+    for acc, data in account_data.items():
+        acc_gains = sum(g["pnl_eur"] for g in data["gains"])
+        acc_losses = sum(l["pnl_eur"] for l in data["losses"])
+        acc_potential_tax = acc_gains * tax_rate
+        acc_net = (acc_gains + acc_losses) * tax_rate
+        acc_savings = acc_potential_tax - max(0, acc_net)
+        per_account[acc] = {
+            "total_gains": round(acc_gains, 2),
+            "total_losses": round(acc_losses, 2),
+            "potential_tax": round(acc_potential_tax, 2),
+            "net_tax": round(max(0, acc_net), 2),
+            "tax_savings": round(acc_savings, 2),
+            "gains": sorted(data["gains"], key=lambda x: x["pnl_eur"], reverse=True),
+            "losses": sorted(data["losses"], key=lambda x: x["pnl_eur"]),
+        }
+
     return {
         "tax_rate": tax_rate,
         "total_gains": round(total_gains, 2),
@@ -128,6 +156,7 @@ def compute_tax_loss_data(portfolio: dict, market_data: dict, tax_rate: float = 
         "tax_savings": round(tax_savings, 2),
         "gains": sorted(gains, key=lambda x: x["pnl_eur"], reverse=True),
         "losses": sorted(losses, key=lambda x: x["pnl_eur"]),
+        "per_account": per_account,
     }
 
 
