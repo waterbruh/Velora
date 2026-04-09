@@ -43,7 +43,7 @@
 </div>
 
 {% if briefings %}
-    {% for briefing in briefings|reverse %}
+    {% for briefing in briefings[-3:]|reverse %}
     <div class="card" style="margin-bottom: 16px; transition: all 0.2s ease;" id="briefing-{{ loop.index }}">
         <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; {% if briefing.full_text %}user-select: none;{% endif %}" onclick="toggleBriefing('briefing-{{ loop.index }}')">
