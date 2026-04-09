@@ -74,7 +74,13 @@
                     <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px;">
                         {{ rec.reasoning or '–' }}
                     </div>
-                    <div style="display: flex; gap: 20px; font-size: 13px;">
+                    <div style="display: flex; gap: 20px; font-size: 13px; flex-wrap: wrap;">
+                        {% if rec.shares %}
+                        <span>Stück: <strong>{{ rec.shares }}</strong></span>
+                        {% endif %}
+                        {% if rec.sell_pct %}
+                        <span>Verkauf: <strong>{{ rec.sell_pct }}%</strong></span>
+                        {% endif %}
                         {% if rec.entry_price %}
                         <span>Einstieg: <strong>{{ rec.entry_price|eur }}</strong></span>
                         {% endif %}
