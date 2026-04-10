@@ -34,6 +34,20 @@ INDEX_DESCRIPTIONS = {
 }
 
 
+def _load_region_exposure() -> dict:
+    """Lädt Region-Exposure Mapping aus config/region_exposure.json."""
+    path = CONFIG_DIR / "region_exposure.json"
+    if not path.exists():
+        return {}
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        # _comment Key ignorieren
+        return {k: v for k, v in data.items() if not k.startswith("_")}
+    except Exception:
+        return {}
+
+
 def load_portfolio() -> dict:
     """Lädt Portfolio aus config/portfolio.json."""
     path = CONFIG_DIR / "portfolio.json"
@@ -172,20 +186,23 @@ def compute_portfolio_overview(portfolio: dict, market_data: dict) -> dict:
     # Sortiere Positionen nach Wert (absteigend)
     positions.sort(key=lambda p: p["current_value_eur"], reverse=True)
 
-    # Region-Exposure (basierend auf ISIN-Ländercode)
-    isin_to_region = {
-        "US": "USA", "CA": "Kanada",
-        "DE": "Deutschland", "AT": "Österreich", "NL": "Niederlande",
-        "FR": "Frankreich", "IT": "Italien", "ES": "Spanien", "CH": "Schweiz",
-        "GB": "UK", "IE": "Irland",
-        "JP": "Japan", "CN": "China", "HK": "Hongkong", "KR": "Südkorea",
-        "AU": "Australien", "BR": "Brasilien", "IN": "Indien",
-    }
+    # Region-Exposure (gewichtet nach Revenue-Regionen aus region_exposure.json)
+    region_map = _load_region_exposure()
     regions = {}
     for p in positions:
-        isin_prefix = p["isin"][:2] if p.get("isin") and len(p["isin"]) >= 2 else ""
-        region = isin_to_region.get(isin_prefix, isin_prefix or "Unbekannt")
-        regions[region] = regions.get(region, 0) + p["current_value_eur"]
+        ticker = p.get("ticker", "")
+        value = p["current_value_eur"]
+        if ticker in region_map:
+            for region, pct in region_map[ticker].items():
+                regions[region] = regions.get(region, 0) + value * pct / 100
+        else:
+            # Fallback: ISIN-basiert
+            isin_prefix = p["isin"][:2] if p.get("isin") and len(p["isin"]) >= 2 else ""
+            fallback = {"US": "USA", "DE": "Europa", "AT": "Europa", "NL": "Europa",
+                        "FR": "Europa", "IE": "Europa", "GB": "Europa", "CH": "Europa",
+                        "JP": "Asien", "CN": "Asien", "HK": "Asien", "KR": "Asien"}
+            region = fallback.get(isin_prefix, "Sonstige")
+            regions[region] = regions.get(region, 0) + value
 
     # Sektor-Breakdown
     sectors = {}
