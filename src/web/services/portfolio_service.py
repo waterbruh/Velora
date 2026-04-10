@@ -48,6 +48,63 @@ def _load_region_exposure() -> dict:
         return {}
 
 
+def _save_region_exposure(data: dict):
+    """Speichert Region-Exposure Mapping."""
+    path = CONFIG_DIR / "region_exposure.json"
+    save_data = {"_comment": "Region-Exposure pro Ticker in Prozent. Basierend auf Revenue-Herkunft, nicht Firmensitz."}
+    save_data.update(data)
+    with open(path, "w") as f:
+        json.dump(save_data, f, indent=2, ensure_ascii=False)
+
+
+def update_region_on_trade(action: str, ticker: str, position_removed: bool = False):
+    """Aktualisiert region_exposure.json nach einem Trade.
+    Bei Kauf neuer Position: Claude CLI Research starten (async).
+    Bei komplettem Verkauf: Ticker entfernen."""
+    regions = _load_region_exposure()
+
+    if action == "sell" and position_removed:
+        if ticker in regions:
+            del regions[ticker]
+            _save_region_exposure(regions)
+            logger.info(f"Region-Exposure: {ticker} entfernt (Position verkauft)")
+
+    elif action == "buy" and ticker not in regions:
+        # Neue Position → Region-Research im Hintergrund
+        import threading
+        threading.Thread(target=_research_region, args=(ticker,), daemon=True).start()
+
+
+def _research_region(ticker: str):
+    """Ruft Claude CLI auf um die Revenue-Region eines Tickers zu bestimmen."""
+    try:
+        from src.analysis.claude import ask_claude
+        prompt = (
+            f"Analysiere die Revenue-Verteilung von {ticker} nach Regionen. "
+            f"Gib NUR ein JSON zurück im Format: "
+            f'```json\n{{"USA": 50, "Europa": 25, "Asien": 20, "Sonstige": 5}}\n```\n'
+            f"Die Regionen sind: USA, Europa, Asien, Global, Sonstige. "
+            f"Prozente müssen sich auf 100 summieren. "
+            f"Basiere auf dem tatsächlichen Revenue-Split, nicht auf dem Firmensitz."
+        )
+        result = ask_claude("Du bist ein Finanzanalyse-Assistent. Antworte NUR mit dem JSON-Block.", prompt)
+        structured = result.get("structured")
+        if structured and isinstance(structured, dict):
+            # Validieren: Summe ~100
+            total = sum(structured.values())
+            if 95 <= total <= 105:
+                regions = _load_region_exposure()
+                regions[ticker] = structured
+                _save_region_exposure(regions)
+                logger.info(f"Region-Exposure: {ticker} → {structured}")
+            else:
+                logger.warning(f"Region-Research {ticker}: Summe {total} != 100, übersprungen")
+        else:
+            logger.warning(f"Region-Research {ticker}: Kein valides JSON von Claude")
+    except Exception as e:
+        logger.error(f"Region-Research {ticker} Fehler: {e}")
+
+
 def load_portfolio() -> dict:
     """Lädt Portfolio aus config/portfolio.json."""
     path = CONFIG_DIR / "portfolio.json"

@@ -189,7 +189,8 @@ def update_portfolio_position(action: str, ticker: str, shares: float, price: fl
                     break
                 elif action == "sell":
                     pos["shares"] -= shares
-                    if pos["shares"] <= 0.001:
+                    position_removed = pos["shares"] <= 0.001
+                    if position_removed:
                         account["positions"].remove(pos)
                     updated = True
                     matched_account = account_name
@@ -205,6 +206,18 @@ def update_portfolio_position(action: str, ticker: str, shares: float, price: fl
         portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
         with open(portfolio_path, "w") as f:
             json.dump(portfolio, f, indent=2, ensure_ascii=False)
+
+        # Region-Exposure aktualisieren
+        try:
+            from src.web.services.portfolio_service import update_region_on_trade
+            pos_removed = action == "sell" and not any(
+                p.get("ticker", "").split(".")[0] == ticker.split(".")[0]
+                for acc in portfolio["accounts"].values()
+                for p in acc.get("positions", [])
+            )
+            update_region_on_trade(action, ticker, position_removed=pos_removed)
+        except Exception:
+            pass
 
     return updated
 

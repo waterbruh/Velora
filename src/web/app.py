@@ -372,6 +372,9 @@ async def api_log_trade(request: Request):
                 with open(config_path, "w") as f:
                     _json.dump(portfolio, f, indent=2, ensure_ascii=False)
                 close_recommendation_on_trade(ticker, action)
+                # Region-Research im Hintergrund starten
+                from src.web.services.portfolio_service import update_region_on_trade
+                update_region_on_trade("buy", ticker)
                 return JSONResponse({"status": "ok", "message": f"Neue Position: {shares}x {ticker} @ {price} in {account}"})
 
         return JSONResponse({"error": f"Ticker {ticker} nicht gefunden in {account}"}, status_code=404)
