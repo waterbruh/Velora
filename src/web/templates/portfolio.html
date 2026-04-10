@@ -83,12 +83,12 @@
     </div>
 </div>
 
-<!-- Currency + Sector Breakdown -->
+<!-- Region + Sector Breakdown -->
 <div class="charts-grid" style="margin-bottom: 24px;">
     <div class="card">
-        <div class="card-title">Währungs-Exposure</div>
+        <div class="card-title">Region-Exposure</div>
         <div style="height: 250px;">
-            <canvas id="currencyChart"></canvas>
+            <canvas id="regionChart"></canvas>
         </div>
     </div>
     <div class="card">
@@ -224,17 +224,18 @@
 
 {% block scripts %}
 <script>
-const currencyExposure = {{ overview.currency_exposure|tojson }};
+const regionExposure = {{ overview.region_exposure|tojson }};
 const sectorBreakdown = {{ overview.sector_breakdown|tojson }};
+const pieColors = ['#3b82f6','#22c55e','#ef4444','#eab308','#8b5cf6','#ec4899','#06b6d4','#f97316','#14b8a6','#6366f1','#a855f7','#64748b'];
 
-// Currency Chart
-new Chart(document.getElementById('currencyChart'), {
+// Region Chart
+new Chart(document.getElementById('regionChart'), {
     type: 'doughnut',
     data: {
-        labels: Object.keys(currencyExposure),
+        labels: Object.keys(regionExposure),
         datasets: [{
-            data: Object.values(currencyExposure),
-            backgroundColor: ['#3b82f6', '#22c55e'],
+            data: Object.values(regionExposure),
+            backgroundColor: pieColors.slice(0, Object.keys(regionExposure).length),
             borderColor: '#0f172a',
             borderWidth: 2,
         }]

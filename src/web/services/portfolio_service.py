@@ -172,11 +172,20 @@ def compute_portfolio_overview(portfolio: dict, market_data: dict) -> dict:
     # Sortiere Positionen nach Wert (absteigend)
     positions.sort(key=lambda p: p["current_value_eur"], reverse=True)
 
-    # Währungs-Exposure
-    usd_positions = [p for p in positions if p["currency"] == "USD"]
-    eur_positions = [p for p in positions if p["currency"] != "USD"]
-    usd_value = sum(p["current_value_eur"] for p in usd_positions)
-    eur_value = sum(p["current_value_eur"] for p in eur_positions)
+    # Region-Exposure (basierend auf ISIN-Ländercode)
+    isin_to_region = {
+        "US": "USA", "CA": "Kanada",
+        "DE": "Deutschland", "AT": "Österreich", "NL": "Niederlande",
+        "FR": "Frankreich", "IT": "Italien", "ES": "Spanien", "CH": "Schweiz",
+        "GB": "UK", "IE": "Irland",
+        "JP": "Japan", "CN": "China", "HK": "Hongkong", "KR": "Südkorea",
+        "AU": "Australien", "BR": "Brasilien", "IN": "Indien",
+    }
+    regions = {}
+    for p in positions:
+        isin_prefix = p["isin"][:2] if p.get("isin") and len(p["isin"]) >= 2 else ""
+        region = isin_to_region.get(isin_prefix, isin_prefix or "Unbekannt")
+        regions[region] = regions.get(region, 0) + p["current_value_eur"]
 
     # Sektor-Breakdown
     sectors = {}
@@ -221,10 +230,7 @@ def compute_portfolio_overview(portfolio: dict, market_data: dict) -> dict:
         "positions": positions,
         "bank_accounts": bank_accounts,
         "eur_usd_rate": eur_usd,
-        "currency_exposure": {
-            "EUR": round(eur_value, 2),
-            "USD": round(usd_value, 2),
-        },
+        "region_exposure": {k: round(v, 2) for k, v in sorted(regions.items(), key=lambda x: x[1], reverse=True)},
         "sector_breakdown": {k: round(v, 2) for k, v in sorted(sectors.items(), key=lambda x: x[1], reverse=True)},
         "account_breakdown": {k: round(v, 2) for k, v in sorted(accounts.items(), key=lambda x: x[1], reverse=True)},
         "accounts_grouped": accounts_grouped,
