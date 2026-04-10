@@ -83,7 +83,7 @@ def _research_region(ticker: str):
             f"Analysiere die Revenue-Verteilung von {ticker} nach Regionen. "
             f"Gib NUR ein JSON zurück im Format: "
             f'```json\n{{"USA": 50, "Europa": 25, "Asien": 20, "Sonstige": 5}}\n```\n'
-            f"Die Regionen sind: USA, Europa, Asien, Global, Sonstige. "
+            f"Die Regionen sind: USA, Europa, Asien, Rohstoffe (nur für Rohstoff-ETCs/ETFs), Sonstige. "
             f"Prozente müssen sich auf 100 summieren. "
             f"Basiere auf dem tatsächlichen Revenue-Split, nicht auf dem Firmensitz."
         )

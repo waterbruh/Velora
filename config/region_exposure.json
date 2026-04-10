@@ -13,7 +13,7 @@
   "BMY": {"USA": 65, "Europa": 20, "Asien": 10, "Sonstige": 5},
   "GOOGL": {"USA": 50, "Europa": 25, "Asien": 20, "Sonstige": 5},
   "GOOG": {"USA": 50, "Europa": 25, "Asien": 20, "Sonstige": 5},
-  "8PSG.DE": {"Global": 100},
+  "8PSG.DE": {"Rohstoffe": 100},
   "MSFT": {"USA": 50, "Europa": 25, "Asien": 20, "Sonstige": 5},
   "NVDA": {"USA": 25, "Asien": 55, "Europa": 15, "Sonstige": 5},
   "AT0000A36795": {"Europa": 100},
