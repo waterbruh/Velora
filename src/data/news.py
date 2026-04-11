@@ -168,6 +168,19 @@ def search_new_opportunities(api_key: str) -> list[dict]:
     return results
 
 
+def get_merged_headlines(news_data: dict, limit: int = 20) -> list[dict]:
+    """Mergt Bloomberg + Macro-News, sortiert nach Aktualität."""
+    all_news = []
+    for item in news_data.get("bloomberg_headlines", []):
+        item.setdefault("source", "bloomberg")
+        all_news.append(item)
+    for item in news_data.get("macro_news", []):
+        item.setdefault("source", "brave")
+        all_news.append(item)
+    all_news.sort(key=lambda x: x.get("published", ""), reverse=True)
+    return all_news[:limit]
+
+
 # ── Collector ────────────────────────────────────────────────────
 
 def collect_all_news(portfolio_tickers: list[dict], brave_api_key: str, finnhub_api_key: str = "") -> dict:

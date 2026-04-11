@@ -168,12 +168,24 @@ async def analysis_page(request: Request):
 async def market_page(request: Request):
     market_data = get_market_data()
     macro_data = get_macro_data()
+    news_data = get_news_data()
     calendar_data = get_calendar_data()
     indices = compute_index_data(market_data)
     cache_status = get_cache_status()
 
+    # Sector Heatmap: Durchschnittliche Tagesveränderung pro Sektor
+    sector_heatmap = {}
+    for ticker, pos in market_data.get("positions", {}).items():
+        price = pos.get("price", {})
+        sector = price.get("sector")
+        change = price.get("change_pct")
+        if sector and change is not None:
+            sector_heatmap.setdefault(sector, []).append(change)
+    sector_heatmap = {s: round(sum(c) / len(c), 2) for s, c in sector_heatmap.items()}
+
     return templates.TemplateResponse(request, "market.html", _ctx(request, "market",
         indices=indices, macro=macro_data, calendar=calendar_data, cache_status=cache_status,
+        news=news_data or {}, sector_heatmap=sector_heatmap,
     ))
 
 
@@ -555,6 +567,22 @@ async def _run_refresh():
             "market_status": market_status,
             "macro_events": macro_events,
         })
+
+        # News-Collection
+        try:
+            from src.data.news import collect_all_news
+            brave_key = settings.get("brave_search", {}).get("api_key", "")
+            finnhub_key = settings.get("finnhub", {}).get("api_key", "")
+            portfolio_tickers = [
+                {"ticker": t, "name": market_data["positions"][t].get("price", {}).get("name", t)}
+                for t in market_data.get("positions", {})
+            ]
+            if brave_key or finnhub_key:
+                news = collect_all_news(portfolio_tickers, brave_key, finnhub_key)
+                save_cache("news_data", news)
+                logger.info("News-Daten gesammelt und gecacht")
+        except Exception as e:
+            logger.error(f"News-Collection Fehler: {e}")
 
         logger.info("Background-Refresh abgeschlossen")
     except Exception as e:

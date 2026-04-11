@@ -2,128 +2,233 @@
 {% block title %}Markt — claudefolio{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<!-- ═══ HEADER + MARKET STATUS ═══ -->
+<div class="page-header" style="margin-bottom: 12px;">
     <div>
         <h1 class="page-title">Markt-Überblick</h1>
-        <div class="page-subtitle">Indizes, Makrodaten & Kalender</div>
+        <div class="page-subtitle">Indizes, News, Makrodaten & Kalender</div>
     </div>
+    {% if calendar and calendar.get('market_status') %}
+    {% set ms = calendar['market_status'] %}
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        {% for ex, label in [('nyse_open', 'NYSE'), ('xetra_open', 'XETRA'), ('wien_open', 'Wien')] %}
+        {% set is_open = ms.get(ex, false) %}
+        <span style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+            background: {{ 'rgba(74,222,128,0.1)' if is_open else 'rgba(248,113,113,0.1)' }};
+            color: {{ 'var(--green)' if is_open else 'var(--red)' }};">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ 'var(--green)' if is_open else 'var(--red)' }};{{ ' animation: pulse 2s infinite;' if is_open else '' }}"></span>
+            {{ label }}
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
 </div>
 
-<!-- Indices Grid -->
-<div class="card" style="margin-bottom: 24px;">
+{% if calendar and calendar.get('market_status') and calendar['market_status'].get('holidays_today') %}
+<div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.2); border-radius: 8px; padding: 8px 14px; margin-bottom: 16px; font-size: 12px; color: var(--yellow);">
+    Feiertag: {{ calendar['market_status']['holidays_today']|join(', ') }}
+</div>
+{% endif %}
+
+<!-- ═══ INDEX GRID ═══ -->
+<div class="card" style="margin-bottom: 20px;">
     <div class="card-title">Indizes</div>
     {% if indices %}
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;">
         {% for idx in indices %}
-        <div style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;">
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">{{ idx.name }}</div>
-            {% if idx.description %}<div style="font-size: 10px; color: var(--text-muted); opacity: 0.6; margin-bottom: 2px;">{{ idx.description }}</div>{% endif %}
-            <div style="font-size: 20px; font-weight: 700;">
-                {% if idx.name == 'EUR/USD' %}
-                    {{ "%.4f"|format(idx.value) if idx.value else '–' }}
-                {% else %}
-                    {{ idx.value|number(0) if idx.value else '–' }}
+        {% set is_pos = idx.change_pct is not none and idx.change_pct >= 0 %}
+        <div style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; border-left: 3px solid {{ 'var(--green)' if is_pos else 'var(--red)' if idx.change_pct is not none else 'var(--border)' }};">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <div style="font-size: 11px; color: var(--text-muted);">{{ idx.name }}</div>
+                    {% if idx.description %}<div style="font-size: 9px; color: var(--text-muted); opacity: 0.5;">{{ idx.description }}</div>{% endif %}
+                </div>
+                {% if idx.change_pct is not none %}
+                <span class="{{ 'positive' if is_pos else 'negative' }}" style="font-size: 12px; font-weight: 700;">{{ idx.change_pct|pct }}</span>
                 {% endif %}
             </div>
+            <div style="font-size: 20px; font-weight: 700; margin-top: 4px;">
+                {% if idx.name == 'EUR/USD' %}{{ "%.4f"|format(idx.value) if idx.value else '–' }}
+                {% elif idx.name == 'VIX' %}{{ "%.1f"|format(idx.value) if idx.value else '–' }}
+                {% else %}{{ idx.value|number(0) if idx.value else '–' }}{% endif %}
+            </div>
             {% if idx.change_pct is not none %}
-            <div class="{{ 'positive' if idx.change_pct >= 0 else 'negative' }}" style="font-size: 13px; font-weight: 600; margin-top: 2px;">
-                {{ idx.change_pct|pct }}
+            <div style="margin-top: 6px; height: 4px; background: var(--bg-secondary); border-radius: 2px; overflow: hidden;">
+                {% set bar_width = [idx.change_pct|abs * 10, 100]|min %}
+                <div style="height: 100%; width: {{ bar_width }}%; background: {{ 'var(--green)' if is_pos else 'var(--red)' }}; border-radius: 2px; transition: width 0.3s;"></div>
             </div>
             {% endif %}
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div class="empty-state">
-        <div class="empty-state-text">Keine Index-Daten im Cache</div>
-        <div class="empty-state-hint">Starte ein Briefing oder klicke auf Aktualisieren</div>
-    </div>
+    <div class="empty-state"><div class="empty-state-text">Keine Index-Daten im Cache</div></div>
     {% endif %}
 </div>
 
-<!-- Macro Data -->
-<div class="charts-grid" style="margin-bottom: 24px;">
-    <!-- US Macro -->
+<!-- ═══ SCHLAGZEILEN ═══ -->
+{% set headlines = [] %}
+{% for item in news.get('bloomberg_headlines', []) %}{% if headlines.append(item) %}{% endif %}{% endfor %}
+{% for item in news.get('macro_news', []) %}{% if headlines.append(item) %}{% endif %}{% endfor %}
+{% if headlines %}
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-title">Schlagzeilen</div>
+    <div style="max-height: 420px; overflow-y: auto; padding-right: 4px;">
+        {% for item in headlines[:20] %}
+        <div style="display: flex; gap: 10px; padding: 10px 0; {% if not loop.last %}border-bottom: 1px solid rgba(51,65,85,0.3);{% endif %}">
+            <div style="flex-shrink: 0; margin-top: 2px;">
+                {% if item.get('source') == 'bloomberg' or 'bloomberg' in (item.get('url', '')|lower) %}
+                <span style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; background: rgba(130,80,220,0.15); color: #a78bfa;">BLOOMBERG</span>
+                {% elif 'finnhub' in (item.get('source', '')|lower) %}
+                <span style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; background: rgba(59,130,246,0.15); color: #60a5fa;">FINNHUB</span>
+                {% else %}
+                <span style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; background: rgba(249,115,22,0.15); color: #fb923c;">NEWS</span>
+                {% endif %}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+                <a href="{{ item.url or item.get('link', '#') }}" target="_blank" rel="noopener" style="color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 500; line-height: 1.4; display: block;">
+                    {{ item.title or item.get('headline', '–') }}
+                </a>
+                {% if item.get('description') %}
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.description[:150] }}</div>
+                {% endif %}
+                {% if item.get('published') or item.get('age') %}
+                <div style="font-size: 10px; color: var(--text-muted); opacity: 0.6; margin-top: 2px;">{{ item.get('age') or item.get('published', '')[:16] }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══ SENTIMENT + MAKRO (2-Spalten) ═══ -->
+<div class="charts-grid" style="margin-bottom: 20px;">
+    <!-- Sentiment Dashboard -->
     <div class="card">
-        <div class="card-title">US-Makrodaten</div>
-        {% if macro and macro.get('us') %}
-        <table>
-            <tbody>
-                {% set us = macro['us'] %}
-                {% for key, item in us.items() %}
-                <tr>
-                    <td style="font-size: 13px; color: var(--text-secondary);">{{ key|replace('_', ' ')|title }}</td>
-                    <td class="text-right" style="font-weight: 600;">
-                        {% if item is mapping %}
-                            {{ item.get('value', '–') }}
-                        {% else %}
-                            {{ item }}
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="card-title">Stimmung (Finnhub)</div>
+        {% if news.get('sentiment') %}
+        <div style="display: grid; gap: 8px;">
+            {% for ticker, s in news['sentiment'].items() %}
+            {% set bullish = s.get('bullish', 50) %}
+            {% set bearish = s.get('bearish', 50) %}
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="ticker-badge" style="min-width: 55px; text-align: center;">{{ ticker }}</span>
+                <div style="flex: 1; height: 18px; display: flex; border-radius: 4px; overflow: hidden; background: var(--bg-primary);">
+                    <div style="width: {{ bullish }}%; background: rgba(74,222,128,0.4); display: flex; align-items: center; justify-content: center;">
+                        {% if bullish > 15 %}<span style="font-size: 9px; font-weight: 700; color: var(--green);">{{ bullish|round(0)|int }}%</span>{% endif %}
+                    </div>
+                    <div style="width: {{ bearish }}%; background: rgba(248,113,113,0.3); display: flex; align-items: center; justify-content: center;">
+                        {% if bearish > 15 %}<span style="font-size: 9px; font-weight: 700; color: var(--red);">{{ bearish|round(0)|int }}%</span>{% endif %}
+                    </div>
+                </div>
+                {% if s.get('buzz_volume') %}
+                <span style="font-size: 10px; color: var(--text-muted);" title="Artikel letzte Woche">{{ s.buzz_volume }} Art.</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
-        <div class="empty-state"><div class="empty-state-text">Keine Makrodaten im Cache</div></div>
+        <div class="empty-state"><div class="empty-state-text">Keine Sentiment-Daten</div><div class="empty-state-hint">Verfügbar nach dem nächsten Daten-Refresh (nur US-Ticker)</div></div>
         {% endif %}
     </div>
 
-    <!-- EU Macro -->
+    <!-- Makrodaten mit Tabs -->
     <div class="card">
-        <div class="card-title">EU-Makrodaten</div>
-        {% if macro and macro.get('eu') %}
-        <table>
-            <tbody>
-                {% for key, item in macro['eu'].items() %}
-                <tr>
-                    <td style="font-size: 13px; color: var(--text-secondary);">{{ key|replace('_', ' ')|title }}</td>
-                    <td class="text-right" style="font-weight: 600;">
-                        {% if item is mapping %}
-                            {{ item.get('value', '–') }}
-                        {% else %}
-                            {{ item }}
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <div class="empty-state"><div class="empty-state-text">Keine EU-Daten</div></div>
-        {% endif %}
+        <div style="display: flex; gap: 0; margin-bottom: 14px;">
+            <button onclick="showTab('us')" id="tab-us" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 8px 0 0 8px; background: var(--accent-bg); color: var(--accent-light); font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px;">US</button>
+            <button onclick="showTab('eu')" id="tab-eu" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-left: none; border-radius: 0 8px 8px 0; background: var(--bg-primary); color: var(--text-muted); font-size: 12px; font-weight: 700; cursor: pointer; letter-spacing: 0.5px;">EU</button>
+        </div>
+        <div id="macro-us">
+            {% if macro and macro.get('us') %}
+            <table>
+                <tbody>
+                    {% for key, item in macro['us'].items() %}
+                    {% set val = item.get('value', item) if item is mapping else item %}
+                    <tr>
+                        <td style="font-size: 13px; color: var(--text-secondary);">{{ key|replace('_', ' ')|title }}</td>
+                        <td class="text-right" style="font-weight: 600;">
+                            {{ val }}
+                            {% if 'yield' in key|lower and 'spread' in key|lower and val is number and val < 0 %}
+                            <span style="font-size: 10px; color: var(--red); margin-left: 4px;">invertiert</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state"><div class="empty-state-text">Keine US-Makrodaten</div></div>
+            {% endif %}
+        </div>
+        <div id="macro-eu" style="display: none;">
+            {% if macro and macro.get('eu') %}
+            <table>
+                <tbody>
+                    {% for key, item in macro['eu'].items() %}
+                    <tr>
+                        <td style="font-size: 13px; color: var(--text-secondary);">{{ key|replace('_', ' ')|title }}</td>
+                        <td class="text-right" style="font-weight: 600;">{% if item is mapping %}{{ item.get('value', '–') }}{% else %}{{ item }}{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state"><div class="empty-state-text">Keine EU-Makrodaten</div></div>
+            {% endif %}
+        </div>
     </div>
 </div>
 
-<!-- Fear & Greed -->
+<!-- ═══ FEAR & GREED (SVG Gauge) ═══ -->
 {% if macro and macro.get('fear_greed') %}
 {% set fg = macro['fear_greed'] %}
-<div class="card" style="margin-bottom: 24px;">
+{% set fg_val = fg.value|round(0)|int %}
+<div class="card" style="margin-bottom: 20px;">
     <div class="card-title">Fear & Greed Index</div>
-    <div style="display: flex; align-items: center; gap: 32px; padding: 16px 0;">
-        <div style="text-align: center;">
-            <div style="font-size: 48px; font-weight: 700;
-                {% if fg.value <= 25 %}color: var(--red);
-                {% elif fg.value <= 45 %}color: var(--yellow);
-                {% elif fg.value <= 55 %}color: var(--text-primary);
-                {% elif fg.value <= 75 %}color: var(--green);
-                {% else %}color: var(--green);{% endif %}
-            ">{{ fg.value|round(0)|int }}</div>
-            <div style="font-size: 14px; color: var(--text-secondary); font-weight: 600; text-transform: capitalize;">{{ fg.rating }}</div>
+    <div style="display: flex; align-items: center; gap: 32px; padding: 8px 0;">
+        <div style="position: relative; width: 200px; flex-shrink: 0;">
+            <svg viewBox="0 0 200 120" style="width: 100%;">
+                <defs>
+                    <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#ef4444"/>
+                        <stop offset="35%" style="stop-color:#eab308"/>
+                        <stop offset="65%" style="stop-color:#eab308"/>
+                        <stop offset="100%" style="stop-color:#22c55e"/>
+                    </linearGradient>
+                </defs>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(51,65,85,0.3)" stroke-width="14" stroke-linecap="round"/>
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="{{ 251.3 * fg_val / 100 }} 251.3"/>
+                {% set angle = 180 + (fg_val / 100) * 180 %}
+                {% set nx = 100 + 70 * (angle * 3.14159 / 180)|cos %}
+                {% set ny = 100 + 70 * (angle * 3.14159 / 180)|sin %}
+                <circle cx="{{ 100 + 70 * (-1 + 2 * fg_val / 100) * (1 - (fg_val/50 - 1)**2)**0.5 if fg_val != 50 else 100 }}" cy="{{ 100 - 70 * (1 - (fg_val/50 - 1)**2)**0.5 if fg_val != 50 else 30 }}" r="6" fill="white" filter="drop-shadow(0 0 4px rgba(255,255,255,0.5))"/>
+                <text x="100" y="95" text-anchor="middle" fill="{% if fg_val <= 25 %}#ef4444{% elif fg_val <= 45 %}#eab308{% elif fg_val <= 55 %}#f1f5f9{% elif fg_val <= 75 %}#22c55e{% else %}#22c55e{% endif %}" font-size="32" font-weight="800">{{ fg_val }}</text>
+                <text x="100" y="112" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600" text-transform="uppercase">
+                    {% if fg_val <= 25 %}EXTREME ANGST{% elif fg_val <= 45 %}ANGST{% elif fg_val <= 55 %}NEUTRAL{% elif fg_val <= 75 %}GIER{% else %}EXTREME GIER{% endif %}
+                </text>
+            </svg>
         </div>
         <div style="flex: 1;">
-            <!-- Gauge Bar -->
-            <div style="height: 24px; background: linear-gradient(to right, #ef4444, #eab308 45%, #22c55e); border-radius: 8px; position: relative; box-shadow: 0 2px 12px rgba(0,0,0,0.3);">
-                <div style="position: absolute; left: {{ fg.value|round(0)|int }}%; top: -4px; width: 5px; height: 32px; background: white; border-radius: 3px; transform: translateX(-50%); box-shadow: 0 0 8px rgba(255,255,255,0.4);"></div>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 10px; color: var(--text-muted);">
-                <span>Extreme Fear</span><span>Neutral</span><span>Extreme Greed</span>
+            <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 8px;">
+                {% if fg_val <= 25 %}Extreme Angst im Markt. Historisch oft gute Kaufgelegenheiten.
+                {% elif fg_val <= 45 %}Angst dominiert. Anleger sind vorsichtig.
+                {% elif fg_val <= 55 %}Neutrales Sentiment. Markt wartet auf Impulse.
+                {% elif fg_val <= 75 %}Optimismus steigt. Vorsicht vor Übertreibungen.
+                {% else %}Extreme Gier. Korrekturrisiko erhöht.{% endif %}
             </div>
             {% if fg.previous_1_week is defined %}
-            <div style="margin-top: 12px; display: flex; gap: 24px; font-size: 12px; color: var(--text-muted);">
-                <span>Vorwoche: <strong style="color: var(--text-secondary);">{{ fg.previous_1_week|round(0)|int }}</strong></span>
-                <span>Vormonat: <strong style="color: var(--text-secondary);">{{ fg.previous_1_month|round(0)|int }}</strong></span>
-                <span>Vorjahr: <strong style="color: var(--text-secondary);">{{ fg.previous_1_year|round(0)|int }}</strong></span>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                {% for label, val in [('Vorwoche', fg.previous_1_week), ('Vormonat', fg.previous_1_month), ('Vorjahr', fg.previous_1_year)] %}
+                {% if val is defined and val is not none %}
+                {% set v = val|round(0)|int %}
+                <span style="padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+                    background: {% if v <= 25 %}rgba(239,68,68,0.1){% elif v <= 45 %}rgba(234,179,8,0.1){% elif v <= 55 %}rgba(148,163,184,0.1){% else %}rgba(74,222,128,0.1){% endif %};
+                    color: {% if v <= 25 %}var(--red){% elif v <= 45 %}var(--yellow){% elif v <= 55 %}var(--text-secondary){% else %}var(--green){% endif %};">
+                    {{ label }}: {{ v }}
+                </span>
+                {% endif %}
+                {% endfor %}
             </div>
             {% endif %}
         </div>
@@ -131,21 +236,76 @@
 </div>
 {% endif %}
 
-<!-- Calendar -->
-{% if calendar %}
-<div class="charts-grid">
+<!-- ═══ SEKTOREN-HEATMAP ═══ -->
+{% if sector_heatmap %}
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-title">Sektoren-Heatmap</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+        {% for sector, change in sector_heatmap.items()|sort(attribute='1', reverse=true) %}
+        {% set intensity = [change|abs * 15, 80]|min %}
+        <div style="padding: 14px 12px; border-radius: 8px; text-align: center;
+            background: {% if change >= 0 %}rgba(74,222,128,{{ intensity / 100 }}){% else %}rgba(248,113,113,{{ intensity / 100 }}){% endif %};">
+            <div style="font-size: 11px; font-weight: 600; color: var(--text-primary); line-height: 1.3;">{{ sector }}</div>
+            <div style="font-size: 16px; font-weight: 800; margin-top: 4px;
+                color: {{ 'var(--green)' if change >= 0 else 'var(--red)' }};">
+                {{ change|pct }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══ POSITIONS-NEWS ═══ -->
+{% if news.get('position_news') %}
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-title">Nachrichten zu deinen Positionen</div>
+    {% for ticker, articles in news['position_news'].items() %}
+    {% if loop.index <= 8 %}
+    <details style="margin-bottom: 4px;" {% if loop.index <= 2 %}open{% endif %}>
+        <summary style="cursor: pointer; padding: 10px 0; font-size: 13px; font-weight: 600; color: var(--text-primary); border-bottom: 1px solid rgba(51,65,85,0.2); list-style: none; display: flex; justify-content: space-between; align-items: center;">
+            <span><span class="ticker-badge" style="margin-right: 8px;">{{ ticker }}</span> {{ articles|length }} Artikel</span>
+            <span style="font-size: 16px; color: var(--text-muted); transition: transform 0.2s;">&#9662;</span>
+        </summary>
+        <div style="padding: 8px 0 8px 12px;">
+            {% for article in articles[:5] %}
+            <div style="padding: 6px 0; {% if not loop.last %}border-bottom: 1px solid rgba(51,65,85,0.15);{% endif %}">
+                <a href="{{ article.url or article.get('link', '#') }}" target="_blank" rel="noopener" style="color: var(--accent-light); text-decoration: none; font-size: 12px; line-height: 1.4;">{{ article.title or article.get('headline', '–') }}</a>
+                {% if article.get('description') %}
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">{{ article.description[:120] }}{% if article.description|length > 120 %}...{% endif %}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══ KALENDER (2-Spalten) ═══ -->
+<div class="charts-grid" style="margin-bottom: 20px;">
     <!-- Earnings -->
     <div class="card">
         <div class="card-title">Earnings-Kalender</div>
-        {% if calendar.get('earnings') %}
+        {% if calendar and calendar.get('earnings') %}
         <table>
-            <thead><tr><th>Ticker</th><th>Datum</th></tr></thead>
+            <thead><tr><th>Ticker</th><th>Datum</th><th class="text-right">Tage</th></tr></thead>
             <tbody>
                 {% for e in calendar['earnings'] %}
+                {% if e is mapping %}
                 <tr>
-                    <td><span class="ticker-badge">{{ e.ticker if e is mapping else e }}</span></td>
-                    <td>{{ e.date if e is mapping else '' }}</td>
+                    <td><span class="ticker-badge">{{ e.ticker }}</span></td>
+                    <td>{{ e.date[:10] if e.date else '' }}</td>
+                    <td class="text-right">
+                        {% if e.get('days_until') is not none %}
+                        <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; {% if e.days_until <= 7 %}background: var(--accent-bg); color: var(--accent-light); font-weight: 600;{% else %}color: var(--text-muted);{% endif %}">
+                            {{ e.days_until }}d
+                        </span>
+                        {% endif %}
+                    </td>
                 </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
@@ -154,18 +314,30 @@
         {% endif %}
     </div>
 
-    <!-- Macro Events -->
+    <!-- Macro Events + Feiertage -->
     <div class="card">
         <div class="card-title">Makro-Events</div>
-        {% if calendar.get('macro_events') %}
+        {% if calendar and calendar.get('macro_events') %}
         <table>
-            <thead><tr><th>Event</th><th>Datum</th></tr></thead>
+            <thead><tr><th>Event</th><th>Datum</th><th class="text-right">Tage</th></tr></thead>
             <tbody>
                 {% for event in calendar['macro_events'] %}
+                {% if event is mapping %}
                 <tr>
-                    <td>{{ event.name if event is mapping else event }}</td>
-                    <td class="text-muted">{{ event.date if event is mapping else '' }}</td>
+                    <td>
+                        {% if event.get('category') == 'FED' %}<span style="font-size: 10px; margin-right: 4px;">🇺🇸</span>
+                        {% elif event.get('category') == 'EZB' %}<span style="font-size: 10px; margin-right: 4px;">🇪🇺</span>
+                        {% else %}<span style="font-size: 10px; margin-right: 4px;">📊</span>{% endif %}
+                        {{ event.name }}
+                    </td>
+                    <td class="text-muted">{{ event.date[:10] if event.date else '' }}</td>
+                    <td class="text-right">
+                        {% if event.get('days_until') is not none %}
+                        <span style="font-size: 11px; color: var(--text-muted);">{{ event.days_until }}d</span>
+                        {% endif %}
+                    </td>
                 </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
         </table>
@@ -174,5 +346,48 @@
         {% endif %}
     </div>
 </div>
+
+<!-- ═══ INVESTMENT-IDEEN ═══ -->
+{% if news.get('opportunities') %}
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-title">Investment-Ideen (Recherche)</div>
+    <div style="max-height: 300px; overflow-y: auto;">
+        {% for item in news['opportunities'][:10] %}
+        <div style="padding: 10px 0; {% if not loop.last %}border-bottom: 1px solid rgba(51,65,85,0.3);{% endif %}">
+            <a href="{{ item.url or '#' }}" target="_blank" rel="noopener" style="color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 500;">{{ item.title or '–' }}</a>
+            {% if item.get('description') %}
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4;">{{ item.description[:200] }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    <div style="font-size: 10px; color: var(--text-muted); margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border);">
+        Automatisch recherchiert via Brave Search. Keine Anlageempfehlung.
+    </div>
+</div>
 {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+details[open] > summary span:last-child {
+    transform: rotate(180deg);
+}
+details summary::-webkit-details-marker { display: none; }
+</style>
+<script>
+function showTab(tab) {
+    document.getElementById('macro-us').style.display = tab === 'us' ? 'block' : 'none';
+    document.getElementById('macro-eu').style.display = tab === 'eu' ? 'block' : 'none';
+    document.getElementById('tab-us').style.background = tab === 'us' ? 'var(--accent-bg)' : 'var(--bg-primary)';
+    document.getElementById('tab-us').style.color = tab === 'us' ? 'var(--accent-light)' : 'var(--text-muted)';
+    document.getElementById('tab-eu').style.background = tab === 'eu' ? 'var(--accent-bg)' : 'var(--bg-primary)';
+    document.getElementById('tab-eu').style.color = tab === 'eu' ? 'var(--accent-light)' : 'var(--text-muted)';
+}
+</script>
 {% endblock %}
