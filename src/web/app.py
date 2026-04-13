@@ -558,7 +558,10 @@ async def _run_refresh():
         macro_data = collect_all_macro_data(fred_key)
         save_cache("macro_data", macro_data)
 
-        tickers = list(market_data.get("positions", {}).keys())
+        tickers = [
+            {"ticker": t, "name": market_data["positions"][t].get("price", {}).get("name", t)}
+            for t in market_data.get("positions", {})
+        ]
         earnings = fetch_earnings_calendar(tickers)
         market_status = get_market_status()
         macro_events = get_upcoming_macro_events(days_ahead=30)
@@ -573,12 +576,8 @@ async def _run_refresh():
             from src.data.news import collect_all_news
             brave_key = settings.get("brave_search", {}).get("api_key", "")
             finnhub_key = settings.get("finnhub", {}).get("api_key", "")
-            portfolio_tickers = [
-                {"ticker": t, "name": market_data["positions"][t].get("price", {}).get("name", t)}
-                for t in market_data.get("positions", {})
-            ]
             if brave_key or finnhub_key:
-                news = collect_all_news(portfolio_tickers, brave_key, finnhub_key)
+                news = collect_all_news(tickers, brave_key, finnhub_key)
                 save_cache("news_data", news)
                 logger.info("News-Daten gesammelt und gecacht")
         except Exception as e:
