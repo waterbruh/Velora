@@ -94,7 +94,7 @@ BRIEFING_TEMPLATE = """
 
 {portfolio_summary}
 
-=== AKTUELLE KURSE & FUNDAMENTALS ===
+=== AKTUELLE KURSE & FUNDAMENTALS (Kursperf. = allgemeine Aktienperformance, NICHT dein P/L!) ===
 
 {market_data}
 
@@ -131,7 +131,7 @@ BRIEFING_TEMPLATE = """
 Erstelle das Briefing. Struktur:
 
 1. MARKTLAGE (2-3 Sätze, was hat sich VERÄNDERT seit dem letzten Briefing? Nutze die Makro-Daten: Yield Curve, Credit Spreads, Inflation, Zinsen. Nutze Benchmark-Vergleich.)
-2. PORTFOLIO-CHECK (nur Positionen erwähnen wo sich etwas RELEVANTES getan hat. Fonds-Positionen einordnen falls vorhanden. EUR/USD Auswirkung auf USD-Positionen berechnen.)
+2. PORTFOLIO-CHECK (nur Positionen erwähnen wo sich etwas RELEVANTES getan hat. Fonds-Positionen einordnen falls vorhanden. EUR/USD Auswirkung auf USD-Positionen berechnen. KRITISCH: Verwende für die Performance jeder Position IMMER die "P/L: ...€ (...%)" Werte aus dem PORTFOLIO-Abschnitt oben — diese basieren auf dem persönlichen Buy-In. Die "Kursperf. 1M/6M/1Y" Werte aus den MARKTDATEN zeigen die allgemeine Aktienperformance und sind NICHT identisch mit der Position-Performance!)
 3. EARNINGS & EVENTS (welche Positionen reporten bald? Was ist zu erwarten? Kommende Katalysatoren.)
 4. EMPFEHLUNGEN (nur wenn begründet! "Nichts tun" ist ok. Wenn Aktion, dann konkret: Einstieg, Stop-Loss, Ziel, Risk/Reward, UND Stückzahl. Bei Kauf: Anzahl Stück. Bei Verkauf: Prozent der Position ODER Anzahl Stück. Berücksichtige Tax-Loss-Harvesting wenn sinnvoll.)
 5. NEUE IDEEN (nur wenn wirklich überzeugend. Eigene Analyse, keine Morningstar-Listen.)
@@ -312,7 +312,7 @@ def format_market_data(market_data: dict) -> str:
             f"{data['name']} ({ticker}):\n"
             f"  Kurs: {p.get('current_price')} | Tagesänderung: {p.get('change_pct', '?')}%\n"
             f"  52W-Hoch: {p.get('52w_high')} | 52W-Tief: {p.get('52w_low')}\n"
-            f"  1M: {p.get('perf_1m_pct') or 'k.A.'}{'%' if p.get('perf_1m_pct') is not None else ''} | 6M: {p.get('perf_6m_pct') or 'k.A.'}{'%' if p.get('perf_6m_pct') is not None else ''} | 1Y: {p.get('perf_1y_pct') or 'k.A.'}{'%' if p.get('perf_1y_pct') is not None else ''}\n"
+            f"  Kursperf. 1M: {p.get('perf_1m_pct') or 'k.A.'}{'%' if p.get('perf_1m_pct') is not None else ''} | Kursperf. 6M: {p.get('perf_6m_pct') or 'k.A.'}{'%' if p.get('perf_6m_pct') is not None else ''} | Kursperf. 1Y: {p.get('perf_1y_pct') or 'k.A.'}{'%' if p.get('perf_1y_pct') is not None else ''}\n"
             f"  KGV: {p.get('pe_ratio', '?')} | Forward KGV: {p.get('forward_pe', '?')} | PEG: {p.get('peg_ratio', '?')}\n"
             f"  Dividendenrendite: {p.get('dividend_yield', '?')} | Beta: {p.get('beta', '?')}\n"
             f"  Short Interest: {p.get('short_interest', '?')} | Insider-Anteil: {p.get('insider_buy_pct', '?')}\n"
