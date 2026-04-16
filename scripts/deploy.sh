@@ -45,6 +45,8 @@ scp "$LOCAL_DIR"/src/web/templates/components/*.html $REMOTE:$REMOTE_DIR/src/web
 scp "$LOCAL_DIR"/src/web/static/css/*.css $REMOTE:$REMOTE_DIR/src/web/static/css/
 scp "$LOCAL_DIR"/src/web/static/js/*.js $REMOTE:$REMOTE_DIR/src/web/static/js/ 2>/dev/null || true
 scp "$LOCAL_DIR"/src/web/static/vendor/*.js $REMOTE:$REMOTE_DIR/src/web/static/vendor/
+# Top-level static files (logo, favicons)
+scp "$LOCAL_DIR"/src/web/static/*.svg "$LOCAL_DIR"/src/web/static/*.png $REMOTE:$REMOTE_DIR/src/web/static/ 2>/dev/null || true
 
 # 4. Config, Scripts, Root-Dateien
 echo "Copying config & scripts..."
