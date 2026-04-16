@@ -89,48 +89,44 @@ def _execute_log_trade(params: dict) -> dict:
 
 
 def _add_new_position(ticker: str, shares: float, price: float, account: str | None) -> bool:
-    """Legt eine komplett neue Position im angegebenen Depot an."""
+    """Legt eine komplett neue Position im angegebenen Depot an. Mit File-Lock + atomic write."""
     from datetime import datetime
-    path = CONFIG_DIR / "portfolio.json"
-    with open(path) as f:
-        portfolio = json.load(f)
+    from src.delivery.portfolio_io import portfolio_write_lock
+    from src.delivery.telegram import update_cash_on_trade
 
-    acc_key = account or next(iter(portfolio.get("accounts", {}).keys()), None)
-    if not acc_key or acc_key not in portfolio["accounts"]:
-        logger.error("Konto %s nicht in portfolio.json", acc_key)
-        return False
-
-    # Währung aus Ticker-Suffix raten
     currency = "EUR" if "." in ticker else "USD"
+    added = False
 
-    new_pos = {
-        "ticker": ticker,
-        "name": ticker.split(".")[0],
-        "isin": "",
-        "shares": float(shares),
-        "buy_in": float(price),
-        "buy_in_eur": float(price) if currency == "EUR" else None,
-        "currency": currency,
-    }
-    portfolio["accounts"][acc_key]["positions"].append(new_pos)
+    with portfolio_write_lock() as portfolio:
+        acc_key = account or next(iter(portfolio.get("accounts", {}).keys()), None)
+        if not acc_key or acc_key not in portfolio.get("accounts", {}):
+            logger.error("Konto %s nicht in portfolio.json", acc_key)
+            return False
 
-    # Cash-Konto updaten wenn möglich
-    try:
-        from src.delivery.telegram import update_cash_on_trade
-        update_cash_on_trade(portfolio, acc_key, "buy", shares, price)
-    except Exception as e:
-        logger.warning("Cash-Update fehlgeschlagen: %s", e)
+        new_pos = {
+            "ticker": ticker,
+            "name": ticker.split(".")[0],
+            "isin": "",
+            "shares": float(shares),
+            "buy_in": float(price),
+            "buy_in_eur": float(price) if currency == "EUR" else None,
+            "currency": currency,
+        }
+        portfolio["accounts"][acc_key]["positions"].append(new_pos)
+        try:
+            update_cash_on_trade(portfolio, acc_key, "buy", shares, price)
+        except Exception as e:
+            logger.warning("Cash-Update fehlgeschlagen: %s", e)
+        portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
+        added = True
 
-    portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
-    with open(path, "w") as f:
-        json.dump(portfolio, f, indent=2, ensure_ascii=False)
-
-    try:
-        from src.web.services.portfolio_service import update_region_on_trade
-        update_region_on_trade("buy", ticker)
-    except Exception:
-        pass
-    return True
+    if added:
+        try:
+            from src.web.services.portfolio_service import update_region_on_trade
+            update_region_on_trade("buy", ticker)
+        except Exception:
+            pass
+    return added
 
 
 def _execute_update_watchlist(params: dict) -> dict:

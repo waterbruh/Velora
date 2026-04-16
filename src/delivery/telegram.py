@@ -161,63 +161,96 @@ def parse_trade_message(text: str) -> dict | None:
 
 
 def update_portfolio_position(action: str, ticker: str, shares: float, price: float = None) -> bool:
-    """Aktualisiert eine Position im Portfolio + Cash-Konto."""
-    portfolio_path = CONFIG_DIR / "portfolio.json"
-    with open(portfolio_path) as f:
-        portfolio = json.load(f)
+    """Aktualisiert eine Position im Portfolio + Cash-Konto.
 
-    updated = False
+    Transaktional: Lock → Load → Mutate → Backup → Atomic-Write → Unlock.
+    Verhindert Race-Conditions bei parallelen Trades (Web-Modal + Chat).
+    Bei over-sell (shares > pos.shares) wird nur die vorhandene Menge verkauft
+    und ein Warn-Log geschrieben.
+    """
+    from src.delivery.portfolio_io import portfolio_write_lock
+    from datetime import datetime
+
+    if shares is None or shares <= 0:
+        logger.warning("update_portfolio_position abgelehnt: shares=%s (muss > 0 sein)", shares)
+        return False
+
+    actual_shares_sold = None  # Für Cash-Update bei over-sell-clamp
+    position_removed_flag = False
     matched_account = None
-    for account_name, account in portfolio["accounts"].items():
-        for pos in account["positions"]:
-            pos_ticker = pos.get("ticker", "")
-            pos_name = pos.get("name", "")
-            if (pos_ticker and (pos_ticker == ticker or pos_ticker.split(".")[0] == ticker)) \
-               or ticker in pos_name.upper():
+    updated = False
+    pre_state = None
+    post_state = None
+
+    with portfolio_write_lock() as portfolio:
+        for account_name, account in portfolio["accounts"].items():
+            for pos in list(account["positions"]):  # Kopie, damit remove während iteration safe ist
+                pos_ticker = pos.get("ticker", "") or ""
+                pos_name = (pos.get("name") or "").upper()
+                t = ticker.upper() if ticker else ""
+                matches = (
+                    pos_ticker and (pos_ticker.upper() == t or pos_ticker.split(".")[0].upper() == t)
+                ) or (t and t == pos_name) or (t and t in pos_name.split())
+                if not matches:
+                    continue
+
+                pre_state = {"ticker": pos_ticker, "shares": pos["shares"], "account": account_name}
+
                 if action == "buy":
-                    # Durchschnittlichen Einstandskurs (EUR) neu berechnen
                     old_buy_in_eur = pos.get("buy_in_eur") or pos["buy_in"]
                     old_total_eur = pos["shares"] * old_buy_in_eur
                     new_total_eur = old_total_eur + (shares * (price or old_buy_in_eur))
                     pos["shares"] += shares
                     pos["buy_in_eur"] = round(new_total_eur / pos["shares"], 4)
-                    # buy_in (Originalwährung) auch updaten
-                    old_total = pos["shares"] * pos.get("buy_in", old_buy_in_eur)
                     pos["buy_in"] = round(new_total_eur / pos["shares"], 4)
+                    actual_shares_sold = None  # Irrelevant für buy
+                    post_state = {"shares": pos["shares"], "buy_in_eur": pos["buy_in_eur"]}
                     updated = True
                     matched_account = account_name
                     break
+
                 elif action == "sell":
-                    pos["shares"] -= shares
-                    position_removed = pos["shares"] <= 0.001
-                    if position_removed:
+                    # Over-sell-Schutz: nicht mehr verkaufen als vorhanden
+                    sell_qty = min(float(shares), float(pos["shares"]))
+                    if sell_qty < shares - 1e-9:
+                        logger.warning(
+                            "Over-sell für %s: angefordert %.6f, vorhanden %.6f — clamped auf %.6f",
+                            pos_ticker, shares, pos["shares"], sell_qty,
+                        )
+                    pos["shares"] = round(pos["shares"] - sell_qty, 8)
+                    actual_shares_sold = sell_qty
+                    if pos["shares"] <= 0.001:
                         account["positions"].remove(pos)
+                        position_removed_flag = True
+                        post_state = {"shares": 0, "removed": True}
+                    else:
+                        post_state = {"shares": pos["shares"], "removed": False}
                     updated = True
                     matched_account = account_name
                     break
+            if updated:
+                break
+
+        if updated and price and matched_account:
+            qty_for_cash = actual_shares_sold if action == "sell" else shares
+            update_cash_on_trade(portfolio, matched_account, action, qty_for_cash, price)
+
         if updated:
-            break
+            portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
 
     if updated:
-        from datetime import datetime
-        # Cash-Konto updaten (Preis in EUR)
-        if price and matched_account:
-            update_cash_on_trade(portfolio, matched_account, action, shares, price)
-        portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
-        with open(portfolio_path, "w") as f:
-            json.dump(portfolio, f, indent=2, ensure_ascii=False)
-
-        # Region-Exposure aktualisieren
+        logger.info(
+            "Trade geschrieben: %s %s shares=%s price=%s | pre=%s post=%s account=%s",
+            action, ticker, shares, price, pre_state, post_state, matched_account,
+        )
+        # Region-Exposure aktualisieren (nach dem Write, portfolio neu laden)
         try:
             from src.web.services.portfolio_service import update_region_on_trade
-            pos_removed = action == "sell" and not any(
-                p.get("ticker", "").split(".")[0] == ticker.split(".")[0]
-                for acc in portfolio["accounts"].values()
-                for p in acc.get("positions", [])
-            )
-            update_region_on_trade(action, ticker, position_removed=pos_removed)
-        except Exception:
-            pass
+            update_region_on_trade(action, ticker, position_removed=position_removed_flag)
+        except Exception as e:
+            logger.warning("update_region_on_trade Fehler: %s", e)
+    else:
+        logger.warning("Trade NICHT gefunden: %s %s shares=%s", action, ticker, shares)
 
     return updated
 

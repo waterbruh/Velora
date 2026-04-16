@@ -375,30 +375,18 @@ async def api_log_trade(request: Request):
         currency_sym = '€' if trade_currency == 'EUR' else '$'
         return JSONResponse({"status": "ok", "message": f"{shares}x {ticker} {'gekauft' if action == 'buy' else 'verkauft'} @ {price}{currency_sym}"})
     else:
-        # Position nicht gefunden — bei Kauf neue Position anlegen
+        # Position nicht gefunden — bei Kauf neue Position anlegen (mit Lock + Cash-Update)
         if action == "buy":
-            portfolio = load_portfolio()
-            if account in portfolio["accounts"]:
-                pos_currency = "USD" if not any(c in ticker for c in [".", "AT0"]) else "EUR"
-                new_pos = {
-                    "name": ticker,
-                    "isin": "",
-                    "ticker": ticker,
-                    "shares": shares,
-                    "buy_in": price_eur,
-                    "buy_in_eur": price_eur,
-                    "currency": pos_currency,
-                }
-                portfolio["accounts"][account]["positions"].append(new_pos)
-                from datetime import datetime
-                portfolio["last_updated"] = datetime.now().strftime("%Y-%m-%d")
-                config_path = Path(__file__).parent.parent.parent / "config" / "portfolio.json"
-                with open(config_path, "w") as f:
-                    _json.dump(portfolio, f, indent=2, ensure_ascii=False)
+            from src.delivery.portfolio_io import add_new_position
+            pos_currency = "USD" if not any(c in ticker for c in [".", "AT0"]) else "EUR"
+            created = add_new_position(ticker, shares, price_eur, account, trade_currency=pos_currency)
+            if created:
                 close_recommendation_on_trade(ticker, action)
-                # Region-Research im Hintergrund starten
-                from src.web.services.portfolio_service import update_region_on_trade
-                update_region_on_trade("buy", ticker)
+                try:
+                    from src.web.services.portfolio_service import update_region_on_trade
+                    update_region_on_trade("buy", ticker)
+                except Exception:
+                    pass
                 return JSONResponse({"status": "ok", "message": f"Neue Position: {shares}x {ticker} @ {price} in {account}"})
 
         return JSONResponse({"error": f"Ticker {ticker} nicht gefunden in {account}"}, status_code=404)

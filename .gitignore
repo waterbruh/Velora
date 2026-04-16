@@ -5,8 +5,11 @@ config/settings.json
 # Personal data
 config/portfolio.json
 config/watchlist.json
+config/portfolio.bak.*.json
+config/.portfolio.lock
 memory/
 logs/
+csv_export/
 
 # Claude Code local settings
 .claude/

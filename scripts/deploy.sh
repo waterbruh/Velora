@@ -1,12 +1,23 @@
 #!/bin/bash
 # Velora — Deploy to remote server
+#
+# Usage:
+#   bash scripts/deploy.sh [user@host]           — nur Code/Templates/Static, KEINE Live-State-Files
+#   bash scripts/deploy.sh [user@host] --with-config — zusätzlich settings/portfolio/watchlist kopieren (GEFÄHRLICH auf Live-Systemen, überschreibt remote state!)
 set -e
 
 REMOTE="${1:-admin@192.168.1.27}"
 REMOTE_DIR="/home/$(echo $REMOTE | cut -d@ -f1)/velora"
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+WITH_CONFIG=0
+for arg in "$@"; do
+    if [ "$arg" = "--with-config" ]; then WITH_CONFIG=1; fi
+done
 
 echo "=== Deploying Velora to $REMOTE:$REMOTE_DIR ==="
+if [ "$WITH_CONFIG" = "1" ]; then
+    echo "⚠ --with-config aktiv: portfolio.json, watchlist.json, settings.json werden ÜBERSCHRIEBEN."
+fi
 
 # 1. Verzeichnisstruktur erstellen
 echo "Creating directories..."
@@ -42,18 +53,25 @@ scp "$LOCAL_DIR"/requirements.txt $REMOTE:$REMOTE_DIR/
 scp "$LOCAL_DIR"/setup.py $REMOTE:$REMOTE_DIR/
 scp "$LOCAL_DIR"/scripts/setup_rockpi.sh $REMOTE:$REMOTE_DIR/scripts/
 
-# 5. Bestehende Config übertragen (wenn lokal vorhanden)
-if [ -f "$LOCAL_DIR/config/settings.json" ]; then
-    echo "Copying settings.json..."
-    scp "$LOCAL_DIR"/config/settings.json $REMOTE:$REMOTE_DIR/config/
-fi
-if [ -f "$LOCAL_DIR/config/portfolio.json" ]; then
-    echo "Copying portfolio.json..."
-    scp "$LOCAL_DIR"/config/portfolio.json $REMOTE:$REMOTE_DIR/config/
-fi
-if [ -f "$LOCAL_DIR/config/watchlist.json" ]; then
-    echo "Copying watchlist.json..."
-    scp "$LOCAL_DIR"/config/watchlist.json $REMOTE:$REMOTE_DIR/config/
+# 5. Live-State-Files NUR mit --with-config kopieren.
+#    Ohne Flag werden diese Files NICHT angefasst — sonst überschreibt der Deploy
+#    den Live-Stand auf dem Remote (Trades, Cash-Änderungen, API-Keys).
+if [ "$WITH_CONFIG" = "1" ]; then
+    if [ -f "$LOCAL_DIR/config/settings.json" ]; then
+        echo "Copying settings.json (force)..."
+        scp "$LOCAL_DIR"/config/settings.json $REMOTE:$REMOTE_DIR/config/
+    fi
+    if [ -f "$LOCAL_DIR/config/portfolio.json" ]; then
+        echo "Copying portfolio.json (force)..."
+        scp "$LOCAL_DIR"/config/portfolio.json $REMOTE:$REMOTE_DIR/config/
+    fi
+    if [ -f "$LOCAL_DIR/config/watchlist.json" ]; then
+        echo "Copying watchlist.json (force)..."
+        scp "$LOCAL_DIR"/config/watchlist.json $REMOTE:$REMOTE_DIR/config/
+    fi
+else
+    echo "Skipping live-state files (portfolio/watchlist/settings) — Remote bleibt unverändert."
+    echo "  Mit --with-config überschreiben (z.B. für Erst-Setup)."
 fi
 
 echo ""
