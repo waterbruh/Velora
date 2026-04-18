@@ -124,7 +124,7 @@ async def stream_chat(
     resume_session_id: Optional[str] = None,
     mcp_config_path: Optional[str] = None,
     allowed_tools: Optional[list[str]] = None,
-    model: str = "opus",
+    model: str = "claude-opus-4-6",
     effort: str = "high",
     cwd: Optional[str] = None,
 ) -> AsyncIterator[StreamEvent]:

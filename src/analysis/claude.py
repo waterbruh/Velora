@@ -62,7 +62,7 @@ def ask_claude(system_prompt: str, user_prompt: str, timeout: int = 1200) -> dic
         "--system-prompt", system_prompt,
         "--tools", "",
         "--no-session-persistence",
-        "--model", "opus",
+        "--model", "claude-opus-4-6",
         "--effort", "high",
     ]
 
