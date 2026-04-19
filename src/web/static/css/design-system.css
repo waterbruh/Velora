@@ -42,7 +42,7 @@
   --shadow-elevated: 0 16px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--glass-highlight);
   --shadow-accent-glow: 0 0 24px rgba(34, 211, 238, 0.25);
 
-  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
 

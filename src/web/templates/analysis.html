@@ -6,20 +6,11 @@
 {% endblock %}
 
 {% block content %}
-<style>.range-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }</style>
-
 <div class="page-header">
     <div>
         <h1 class="page-title">Analyse</h1>
         <div class="page-subtitle">Rendite, Aufteilung & Steueroptimierung</div>
     </div>
-</div>
-
-<div style="display:flex; gap: 6px; margin-bottom: var(--space-5); flex-wrap: wrap;">
-    <button class="btn range-btn{% if (request.query_params.get('range') or 'ytd') == 'ytd' %} active{% endif %}" data-range="ytd">YTD</button>
-    <button class="btn range-btn{% if request.query_params.get('range') == '1y' %} active{% endif %}" data-range="1y">1 Jahr</button>
-    <button class="btn range-btn{% if request.query_params.get('range') == '3y' %} active{% endif %}" data-range="3y">3 Jahre</button>
-    <button class="btn range-btn{% if request.query_params.get('range') == 'all' %} active{% endif %}" data-range="all">Alle</button>
 </div>
 
 <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: var(--space-5);">
@@ -40,7 +31,7 @@
 <div class="card" style="margin-bottom: var(--space-5);">
     <div class="card-title">Performance vs Benchmark</div>
     {% if snapshots %}
-    <div id="perfRangeChart" style="height: 340px;"></div>
+    <div id="perfRangeChart" style="height: 420px;"></div>
     {% else %}
     <div class="empty-state-v2">
         <div class="empty-state-icon">◠</div>
@@ -202,17 +193,6 @@
     const regionData = {{ overview.region_exposure|tojson if overview.region_exposure else '{}' }};
     const acctsGrouped = {{ overview.accounts_grouped|tojson if overview.accounts_grouped else '{}' }};
 
-    document.querySelectorAll('.range-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const range = btn.dataset.range;
-            const url = new URL(location.href);
-            url.searchParams.set('range', range);
-            location.href = url.toString();
-        });
-    });
-
     function calcMaxDD(values) {
         let peak = -Infinity; let maxDD = 0;
         for (const v of values) {
@@ -262,7 +242,7 @@
             });
         }
         const opts = Object.assign({}, base, {
-            chart: Object.assign({}, base.chart, { type: 'area', height: 340 }),
+            chart: Object.assign({}, base.chart, { type: 'area', height: 420 }),
             series: series,
             xaxis: { type: 'datetime', labels: { style: { colors: VeloraChartTheme.textMuted() } } },
             yaxis: { labels: { formatter: v => (v/1000).toFixed(0) + 'k€', style: { colors: VeloraChartTheme.textMuted() } } },

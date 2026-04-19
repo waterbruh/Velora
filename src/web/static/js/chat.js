@@ -231,8 +231,8 @@
   const renderEmpty = (container) => {
     const wrap = el('div', { class: 'chat-empty-state' });
     wrap.innerHTML =
-      '<h2>Hallo Max.</h2>' +
-      '<p>Frag mich alles zu deinem Portfolio, Markt-Sentiment oder Trade-Strategie.</p>' +
+      '<h2>Willkommen bei Velora</h2>' +
+      '<p>Frag alles zu deinem Portfolio, Markt-Sentiment oder Trade-Strategie.</p>' +
       '<div class="suggestion-row suggestion-grid-2x3">' +
         SUGGESTIONS.map(s =>
           '<button class="suggestion" type="button" data-prompt="' + escapeHtml(s.prompt) + '">' +

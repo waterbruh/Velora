@@ -117,9 +117,9 @@
 }
 
 .hero-greeting {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 32px;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 26px;
     letter-spacing: var(--letter-hero);
     color: var(--text-primary);
     margin-bottom: var(--space-3);

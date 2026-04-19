@@ -48,7 +48,7 @@
 </div>
 
 {% if briefings %}
-    {% for briefing in briefings[-3:]|reverse %}
+    {% for briefing in briefings[-5:]|reverse %}
     <div class="card" style="margin-bottom: 16px; transition: all 0.2s ease;" id="briefing-{{ loop.index }}">
         <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; {% if briefing.full_text %}user-select: none;{% endif %}" onclick="toggleBriefing('briefing-{{ loop.index }}')">
@@ -81,7 +81,7 @@
                 </div>
             </div>
             {% if briefing.full_text %}
-            <span class="toggle-arrow text-muted" style="font-size: 20px; transition: transform 0.2s; flex-shrink: 0;">&#9662;</span>
+            <span class="toggle-arrow text-muted" style="font-size: 20px; transition: transform 0.2s; flex-shrink: 0;{% if loop.index == 1 %} transform: rotate(180deg);{% endif %}">&#9662;</span>
             {% endif %}
         </div>
 
@@ -92,7 +92,7 @@
 
         <!-- Full Text (hidden, toggled on click) -->
         {% if briefing.full_text %}
-        <div class="briefing-full" style="display: none; margin-top: 16px;">
+        <div class="briefing-full{% if loop.index == 1 %} open{% endif %}" style="{% if loop.index == 1 %}display: block; margin-top: 16px;{% else %}display: none; margin-top: 16px;{% endif %}">
             <div style="padding: 20px 24px; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;">
                 <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);">Vollständiges Briefing</div>
                 <div class="briefing-content">{{ briefing.full_text|safe }}</div>

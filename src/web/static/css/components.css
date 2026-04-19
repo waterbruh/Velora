@@ -235,8 +235,9 @@ select.input {
 }
 
 .text-display {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  letter-spacing: var(--letter-tight);
 }
 
 /* Toast system */
@@ -507,10 +508,11 @@ select.input {
 }
 
 .empty-state-title {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
+  font-weight: 600;
   font-size: var(--text-lg);
   color: var(--text-primary);
+  letter-spacing: var(--letter-tight);
 }
 
 .empty-state-body {

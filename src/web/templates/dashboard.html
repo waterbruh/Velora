@@ -91,8 +91,8 @@
 
 <div class="card" style="margin-top: var(--space-4);">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
-        <div class="card-title" style="margin:0;">Top 5 Holdings</div>
-        <a href="/portfolio" style="font-size: var(--text-xs); color: var(--accent); text-decoration: none;">Alle ansehen →</a>
+        <div class="card-title" style="margin:0;">Alle Holdings ({{ overview.positions|length }})</div>
+        <a href="/portfolio" style="font-size: var(--text-xs); color: var(--accent); text-decoration: none;">Details →</a>
     </div>
     <div class="table-wrapper">
         <table>
@@ -106,7 +106,7 @@
                 </tr>
             </thead>
             <tbody>
-                {% for pos in overview.positions[:5] %}
+                {% for pos in overview.positions|sort(attribute='current_value_eur', reverse=true) %}
                 <tr>
                     <td>{{ pos.name }}</td>
                     <td><span class="ticker-badge">{{ pos.ticker or '–' }}</span></td>
@@ -130,8 +130,8 @@
 {% block scripts %}
 <script>
 const h = new Date().getHours();
-const greeting = h < 11 ? 'Guten Morgen' : h < 17 ? 'Guten Tag' : h < 22 ? 'Guten Abend' : 'Gute Nacht';
-document.getElementById('heroGreeting').textContent = greeting + ', Max.';
+const greeting = h < 11 ? 'Guten Morgen.' : h < 17 ? 'Guten Tag.' : h < 22 ? 'Guten Abend.' : 'Gute Nacht.';
+document.getElementById('heroGreeting').textContent = greeting;
 
 const snaps = {{ snapshots|tojson }};
 if (snaps.length >= 2) {
