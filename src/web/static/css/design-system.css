@@ -1,4 +1,4 @@
-/* Velora design system: raw tokens, semantic aliases, legacy compat, base resets. */
+/* Velora design system v2: split raw tokens, semantic aliases, legacy compat, base resets. */
 
 :root {
   --color-night-0: #030510;
@@ -6,21 +6,28 @@
   --color-night-2: #0a0f1f;
   --color-night-3: #0f1428;
 
+  /* UI brand (no green allowed) */
   --color-cyan-400: #22d3ee;
   --color-cyan-500: #06b6d4;
   --color-cyan-600: #0891b2;
-  --color-emerald-500: #10b981;
+  --color-azure-400: #60a5fa;
   --color-azure-500: #3b82f6;
-  --color-mint-400: #34d399;
-
-  --color-red-400: #f87171;
-  --color-red-500: #ef4444;
+  --color-indigo-500: #6366f1;
+  --color-violet-500: #8b5cf6;
   --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
 
   --color-ink-0: #f0f9ff;
   --color-ink-1: #e0f2fe;
   --color-ink-2: #94a3b8;
   --color-ink-3: #64748b;
+
+  /* Data semantics (green allowed for gain signals only) */
+  --data-green-400: #34d399;
+  --data-green-500: #10b981;
+  --data-red-400: #f87171;
+  --data-red-500: #ef4444;
+  --data-amber-400: #fbbf24;
 
   --glass-bg: rgba(255, 255, 255, 0.045);
   --glass-bg-strong: rgba(255, 255, 255, 0.085);
@@ -44,9 +51,12 @@
   --text-base: 14px;
   --text-md: 15px;
   --text-lg: 18px;
-  --text-xl: 22px;
-  --text-2xl: 28px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
   --text-3xl: 36px;
+
+  --letter-tight: -0.02em;
+  --letter-hero: -0.03em;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -62,6 +72,8 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+
+  --card-padding: var(--space-5);
 
   --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-snap: cubic-bezier(0.2, 0.9, 0.3, 1);
@@ -80,12 +92,21 @@
   --accent-bg: rgba(34, 211, 238, 0.12);
   --accent-ring: rgba(34, 211, 238, 0.45);
 
-  --green: var(--color-emerald-500);
-  --green-bg: rgba(16, 185, 129, 0.14);
-  --red: var(--color-red-400);
-  --red-bg: rgba(248, 113, 113, 0.14);
-  --yellow: var(--color-amber-400);
-  --yellow-bg: rgba(251, 191, 36, 0.14);
+  /* Semantic data tokens */
+  --gain: var(--data-green-500);
+  --gain-bg: rgba(16, 185, 129, 0.14);
+  --loss: var(--data-red-400);
+  --loss-bg: rgba(248, 113, 113, 0.14);
+  --warn: var(--data-amber-400);
+  --warn-bg: rgba(251, 191, 36, 0.14);
+
+  /* Legacy aliases — now pointing at semantic tokens. */
+  --green: var(--gain);
+  --green-bg: var(--gain-bg);
+  --red: var(--loss);
+  --red-bg: var(--loss-bg);
+  --yellow: var(--warn);
+  --yellow-bg: var(--warn-bg);
 
   /* Legacy aliases: chat.js + chat_widget.js still read these names inline. */
   --bg-primary: var(--bg-body);
@@ -116,12 +137,19 @@
     --accent-bg: rgba(8, 145, 178, 0.10);
     --accent-ring: rgba(8, 145, 178, 0.35);
 
-    --green: #059669;
-    --green-bg: rgba(5, 150, 105, 0.12);
-    --red: #dc2626;
-    --red-bg: rgba(220, 38, 38, 0.12);
-    --yellow: #d97706;
-    --yellow-bg: rgba(217, 119, 6, 0.12);
+    --gain: #059669;
+    --gain-bg: rgba(5, 150, 105, 0.12);
+    --loss: #dc2626;
+    --loss-bg: rgba(220, 38, 38, 0.12);
+    --warn: #d97706;
+    --warn-bg: rgba(217, 119, 6, 0.12);
+
+    --green: var(--gain);
+    --green-bg: var(--gain-bg);
+    --red: var(--loss);
+    --red-bg: var(--loss-bg);
+    --yellow: var(--warn);
+    --yellow-bg: var(--warn-bg);
 
     --shadow-glass: 0 8px 32px rgba(10, 20, 40, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
     --shadow-elevated: 0 16px 48px rgba(10, 20, 40, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -161,4 +189,17 @@ img {
 
 a {
   color: inherit;
+}
+
+main.main-content {
+  animation: page-enter 400ms var(--ease-apple);
+}
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main.main-content { animation: none; }
 }

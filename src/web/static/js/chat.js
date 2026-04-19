@@ -10,9 +10,11 @@
     streaming: false,
     currentAssistantEl: null,
     currentAssistantText: '',
-    activeToolCards: new Map(), // tool_use_id -> card element
+    activeToolCards: new Map(), // tool_use_id -> {item, startTs}
     abortController: null,
     pinnedIds: new Set(), // lokaler Cache für "gepinnt"-Badge
+    currentToolPanel: null, // konsolidiertes Panel pro Assistant-Turn
+    currentToolPanelStart: 0,
   };
 
   // ── DOM-Refs (werden bei DOMContentLoaded gefüllt) ──
@@ -59,6 +61,44 @@
 
   const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // Code-Blocks in einer gerenderten Assistant-Bubble mit Header + Copy-Button + hljs
+  // anreichern. Idempotent: markiert Elemente mit data-enhanced="1".
+  const enhanceCodeBlocks = (root) => {
+    if (!root) return;
+    root.querySelectorAll('pre > code').forEach((code) => {
+      const pre = code.parentElement;
+      if (!pre || pre.dataset.enhanced === '1') return;
+      pre.dataset.enhanced = '1';
+      const langMatch = (code.className.match(/language-(\w+)/) || [,''])[1];
+      if (typeof hljs !== 'undefined') {
+        try { hljs.highlightElement(code); } catch (_) { /* noop */ }
+      }
+      const wrap = document.createElement('div');
+      wrap.className = 'code-block';
+      const header = document.createElement('div');
+      header.className = 'code-block-header';
+      header.innerHTML =
+        '<span class="code-block-lang">' + (langMatch || 'code') + '</span>' +
+        '<button class="code-block-copy" type="button">Kopieren</button>';
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(header);
+      wrap.appendChild(pre);
+      const btn = header.querySelector('.code-block-copy');
+      btn.addEventListener('click', () => {
+        const txt = code.innerText;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt).then(() => {
+            btn.textContent = 'Kopiert';
+            setTimeout(() => { btn.textContent = 'Kopieren'; }, 1500);
+          });
+        } else {
+          btn.textContent = 'Kopiert';
+          setTimeout(() => { btn.textContent = 'Kopieren'; }, 1500);
+        }
+      });
+    });
+  };
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -168,28 +208,50 @@
     try { localStorage.setItem('velora_last_thread', threadId); } catch {}
   };
 
+  const SUGGESTIONS = [
+    { label: 'Wie diversifiziert bin ich?', prompt: 'Wie diversifiziert bin ich? Gib mir eine ehrliche Einschätzung.' },
+    { label: 'Top 5 analysieren',            prompt: 'Analysiere meine Top 5 Holdings.' },
+    { label: 'Red Flags?',                   prompt: 'Gibt es Red Flags in meinem Portfolio?' },
+    { label: 'Tax-Loss-Chancen',             prompt: 'Gibt es Tax-Loss-Harvesting-Chancen?' },
+    { label: 'Sektor-Exposure',              prompt: 'Erkläre mein Sektor-Exposure.' },
+    { label: 'Markt-Sentiment',              prompt: 'Wie ist das aktuelle Markt-Sentiment?' },
+  ];
+
   const showEmptyState = () => {
     state.currentThreadId = null;
     $messages.innerHTML = '';
     $headerTitle.textContent = 'Velora';
     $pinToggle.textContent = '☆ Anheften';
     $pinToggle.classList.remove('active');
+    renderEmpty($messages);
+  };
 
-    const empty = el('div', { class: 'chat-empty-state' },
-      el('h2', {}, 'Velora'),
-      el('p', {}, 'Dein persönlicher KI-Vermögensberater. Frag mich alles zu deinem Portfolio, Märkten, Trades.'),
-      el('div', { class: 'suggestion-row' },
-        el('div', { class: 'suggestion', onclick: () => startWithPrompt('Wie ist mein Portfolio aktuell aufgestellt? Was fällt dir auf?') },
-          'Wie ist mein Portfolio aktuell aufgestellt?'),
-        el('div', { class: 'suggestion', onclick: () => startWithPrompt('Welche Risiken siehst du im Portfolio diese Woche?') },
-          'Welche Risiken siehst du diese Woche?'),
-        el('div', { class: 'suggestion', onclick: () => startWithPrompt('Gibt es gerade eine interessante Kaufgelegenheit, die zu meinem Portfolio passt?') },
-          'Interessante Kaufgelegenheiten?'),
-        el('div', { class: 'suggestion', onclick: () => startWithPrompt('Was sagt das aktuelle Makro-Umfeld für meine Positionen aus?') },
-          'Makro-Umfeld für meine Positionen?'),
-      ),
-    );
-    $messages.appendChild(empty);
+  // Empty-State mit 2x3-Suggestion-Grid. Wird in leeres Messages-Panel
+  // gerendert (wahlweise im Empty-State-Modus oder wenn Thread 0 Messages hat).
+  const renderEmpty = (container) => {
+    const wrap = el('div', { class: 'chat-empty-state' });
+    wrap.innerHTML =
+      '<h2>Hallo Max.</h2>' +
+      '<p>Frag mich alles zu deinem Portfolio, Markt-Sentiment oder Trade-Strategie.</p>' +
+      '<div class="suggestion-row suggestion-grid-2x3">' +
+        SUGGESTIONS.map(s =>
+          '<button class="suggestion" type="button" data-prompt="' + escapeHtml(s.prompt) + '">' +
+          escapeHtml(s.label) + '</button>'
+        ).join('') +
+      '</div>';
+    container.appendChild(wrap);
+    wrap.querySelectorAll('.suggestion').forEach(b => {
+      b.addEventListener('click', () => {
+        const prompt = b.dataset.prompt || '';
+        if (!state.currentThreadId) {
+          startWithPrompt(prompt);
+        } else {
+          $input.value = prompt;
+          autoResize();
+          sendMessage();
+        }
+      });
+    });
   };
 
   const startWithPrompt = async (prompt) => {
@@ -205,9 +267,7 @@
   const renderAllMessages = () => {
     $messages.innerHTML = '';
     if (state.messages.length === 0) {
-      const hint = el('div', { class: 'chat-empty-state', style: 'margin-top: auto; margin-bottom: auto;' },
-        el('p', {}, 'Stell deine Frage — Velora denkt mit.'));
-      $messages.appendChild(hint);
+      renderEmpty($messages);
       return;
     }
     for (const msg of state.messages) renderMessage(msg);
@@ -218,6 +278,7 @@
     if (msg.role === 'user' || msg.role === 'assistant') {
       const bubble = el('div', { class: 'msg-bubble' });
       bubble.innerHTML = msg.role === 'assistant' ? renderMarkdown(msg.content) : escapeHtml(msg.content).replace(/\n/g, '<br>');
+      if (msg.role === 'assistant') enhanceCodeBlocks(bubble);
 
       const pinned = state.pinnedIds.has(String(msg.id));
       const msgEl = el('div', { class: 'msg ' + msg.role, dataset: { id: msg.id } },
@@ -258,32 +319,65 @@
     } else if (msg.role === 'tool_use') {
       try {
         const d = JSON.parse(msg.content);
-        const card = createToolCard(d.id, d.name, d.input);
-        card.classList.add('done');
-        const spinner = card.querySelector('.tool-card-spinner');
-        if (spinner) spinner.replaceWith(el('span', { class: 'tool-card-icon' }, '✓'));
-        $messages.appendChild(card);
-      } catch {}
+        // Historische Tool-Calls: jeder als fertig-Item in ein gemeinsames Panel
+        // anhängen, falls der unmittelbare Nachbar bereits ein Panel ist.
+        let panel = $messages.lastElementChild;
+        if (!panel || !panel.classList || !panel.classList.contains('tool-panel')) {
+          panel = createToolPanelEl();
+          $messages.appendChild(panel);
+        }
+        addToolItemToPanel(panel, { name: d.name || 'tool', status: 'done', duration: null });
+        finalizeHistoricalPanelTitle(panel);
+      } catch (_) { /* noop */ }
     }
   };
 
-  const createToolCard = (toolUseId, name, input) => {
-    const inputSummary = summarizeToolInput(name, input);
-    return el('div', { class: 'tool-card', dataset: { id: toolUseId || '' } },
-      el('span', { class: 'tool-card-spinner' }),
-      el('span', { class: 'tool-card-name' }, name),
-      inputSummary ? el('span', { class: 'tool-card-details' }, inputSummary) : null,
-    );
+  // Erzeugt leeres Tool-Panel mit Header + Liste. Click-Handler toggelt open.
+  const createToolPanelEl = () => {
+    const panel = document.createElement('div');
+    panel.className = 'tool-panel';
+    panel.setAttribute('open', '');
+    panel.innerHTML =
+      '<div class="tool-panel-header">' +
+        '<span class="tool-panel-chev">&#9662;</span>' +
+        '<span class="tool-panel-title">Velora nutzt <strong>Tools</strong>&hellip;</span>' +
+        '<span class="tool-panel-duration tabular-nums">&hellip;</span>' +
+      '</div>' +
+      '<ul class="tool-panel-list"></ul>';
+    const header = panel.querySelector('.tool-panel-header');
+    header.addEventListener('click', () => {
+      if (panel.hasAttribute('open')) panel.removeAttribute('open');
+      else panel.setAttribute('open', '');
+    });
+    return panel;
   };
 
-  const summarizeToolInput = (name, input) => {
-    if (!input || typeof input !== 'object') return '';
-    if (input.ticker) return `(${input.ticker})`;
-    if (input.query) return `"${String(input.query).slice(0, 40)}"`;
-    if (input.key) return `(${input.key})`;
-    const keys = Object.keys(input);
-    if (keys.length === 0) return '';
-    return `(${keys.slice(0, 2).join(', ')})`;
+  // Fügt einen Item-Eintrag in das Panel ein und gibt das <li> zurück.
+  const addToolItemToPanel = (panel, { name, status, duration }) => {
+    const list = panel.querySelector('.tool-panel-list');
+    const li = document.createElement('li');
+    li.className = 'tool-panel-item ' + (status || 'running');
+    const icon = status === 'done' ? '\u2713' : status === 'error' ? '\u00d7' : '\u2026';
+    li.innerHTML =
+      '<span class="tool-panel-icon">' + icon + '</span>' +
+      '<span class="tool-panel-name">' + escapeHtml(name || '') + '</span>' +
+      '<span class="tool-panel-time tabular-nums">' +
+        (duration != null ? duration.toFixed(1) + 's' : '') +
+      '</span>';
+    list.appendChild(li);
+    return li;
+  };
+
+  // Titel auf Basis der enthaltenen Items aktualisieren (historisch/live finalize).
+  const finalizeHistoricalPanelTitle = (panel) => {
+    const items = panel.querySelectorAll('.tool-panel-item');
+    const hasError = Array.from(items).some(i => i.classList.contains('error'));
+    panel.classList.add(hasError ? 'has-error' : 'all-done');
+    const title = panel.querySelector('.tool-panel-title');
+    const n = items.length;
+    title.innerHTML = 'Velora hat <strong>' + n + ' Tool' + (n === 1 ? '' : 's') + '</strong> genutzt';
+    const dur = panel.querySelector('.tool-panel-duration');
+    if (dur) dur.textContent = '';
   };
 
   // ── Senden / Streaming ──────────────────────────────
@@ -313,6 +407,7 @@
 
     // Assistant-Bubble vorbereiten
     state.currentAssistantText = '';
+    state.currentToolPanel = null; // neues Turn-Panel bei Bedarf
     const bubble = el('div', { class: 'msg-bubble' },
       el('span', { class: 'streaming-cursor' }));
     const assistantEl = el('div', { class: 'msg assistant' }, bubble);
@@ -415,28 +510,70 @@
     }
   };
 
-  const onToolUse = (d) => {
-    // Falls mitten in Assistant-Antwort ein Tool-Call kommt, Bubble vorerst belassen
-    // (Claude setzt den Text später fort).
-    const card = createToolCard(d.id, d.name, d.input);
-    state.activeToolCards.set(d.id, card);
-    // Tool-Card VOR der aktuellen Assistant-Bubble einfügen
+  // Live-Streaming: alle Tool-Calls eines Assistant-Turns landen in einem
+  // konsolidierten Panel vor der aktuellen Assistant-Bubble.
+  const ensureLiveToolPanel = () => {
+    if (state.currentToolPanel && state.currentToolPanel.isConnected) return state.currentToolPanel;
+    const panel = createToolPanelEl();
+    state.currentToolPanel = panel;
+    state.currentToolPanelStart = performance.now();
     if (state.currentAssistantEl) {
       const parentMsg = state.currentAssistantEl.closest('.msg');
-      $messages.insertBefore(card, parentMsg);
+      if (parentMsg && parentMsg.parentNode === $messages) {
+        $messages.insertBefore(panel, parentMsg);
+      } else {
+        $messages.appendChild(panel);
+      }
     } else {
-      $messages.appendChild(card);
+      $messages.appendChild(panel);
     }
+    return panel;
+  };
+
+  const onToolUse = (d) => {
+    const panel = ensureLiveToolPanel();
+    const item = addToolItemToPanel(panel, { name: d.name, status: 'running', duration: null });
+    state.activeToolCards.set(d.id, { item, startTs: performance.now() });
     scrollToBottom();
   };
 
   const onToolResult = (d) => {
-    const card = state.activeToolCards.get(d.tool_use_id);
-    if (!card) return;
-    card.classList.add('done');
-    const spinner = card.querySelector('.tool-card-spinner');
-    if (spinner) spinner.replaceWith(el('span', { class: 'tool-card-icon' }, '✓'));
+    const rec = state.activeToolCards.get(d.tool_use_id);
+    if (!rec) return;
+    const { item, startTs } = rec;
+    const duration = (performance.now() - startTs) / 1000;
+    item.classList.remove('running');
+    const isError = d.is_error === true || d.error === true;
+    item.classList.add(isError ? 'error' : 'done');
+    const icon = item.querySelector('.tool-panel-icon');
+    if (icon) icon.textContent = isError ? '\u00d7' : '\u2713';
+    const t = item.querySelector('.tool-panel-time');
+    if (t) t.textContent = duration.toFixed(1) + 's';
     state.activeToolCards.delete(d.tool_use_id);
+  };
+
+  const finalizeToolPanel = () => {
+    const panel = state.currentToolPanel;
+    if (!panel || !panel.isConnected) { state.currentToolPanel = null; return; }
+    const items = panel.querySelectorAll('.tool-panel-item');
+    // Falls Tools noch "running" sind (z.B. Stream-Abbruch), sauber abhaken.
+    items.forEach(li => {
+      if (li.classList.contains('running')) {
+        li.classList.remove('running');
+        li.classList.add('done');
+        const icon = li.querySelector('.tool-panel-icon');
+        if (icon) icon.textContent = '\u2713';
+      }
+    });
+    const hasError = Array.from(items).some(i => i.classList.contains('error'));
+    panel.classList.add(hasError ? 'has-error' : 'all-done');
+    const title = panel.querySelector('.tool-panel-title');
+    const n = items.length;
+    if (title) title.innerHTML = 'Velora hat <strong>' + n + ' Tool' + (n === 1 ? '' : 's') + '</strong> genutzt';
+    const totalSec = (performance.now() - state.currentToolPanelStart) / 1000;
+    const dur = panel.querySelector('.tool-panel-duration');
+    if (dur) dur.textContent = totalSec.toFixed(1) + 's';
+    state.currentToolPanel = null;
   };
 
   const finishAssistantWithError = (msg) => {
@@ -450,8 +587,10 @@
     if (state.currentAssistantEl) {
       // Cursor entfernen, finaler HTML-State
       state.currentAssistantEl.innerHTML = renderMarkdown(state.currentAssistantText || '(keine Antwort)');
+      enhanceCodeBlocks(state.currentAssistantEl);
     }
     state.currentAssistantEl = null;
+    finalizeToolPanel();
   };
 
   const setStreaming = (v) => {

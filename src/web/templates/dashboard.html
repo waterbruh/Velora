@@ -2,7 +2,7 @@
 {% block title %}Dashboard — Velora{% endblock %}
 
 {% block head %}
-<script src="/static/vendor/chart.min.js"></script>
+<script src="/static/vendor/apexcharts.min.js"></script>
 <script src="/static/vendor/lightweight-charts.min.js"></script>
 {% endblock %}
 
@@ -20,18 +20,43 @@
     </button>
 </div>
 
-<!-- Index Ticker Bar -->
+<div class="hero-greeting" id="heroGreeting"></div>
+
+<div class="kpi-hero">
+    <div>
+        <div class="kpi-hero-label">Gesamtvermoegen</div>
+        <div class="kpi-hero-value tabular-nums">{{ overview.total_value_eur|eur }}</div>
+        <div class="kpi-hero-delta tabular-nums" id="heroDelta"></div>
+    </div>
+    <div class="kpi-hero-spark" id="heroSparkContainer">
+        <span class="sparkline" data-sparkline="{{ hero_sparkline_data|default([1,1])|tojson }}" data-width="160" data-height="40"></span>
+    </div>
+</div>
+
+<div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="kpi-card">
+        <div class="kpi-label">Liquide Mittel</div>
+        <div class="kpi-value tabular-nums">{{ overview.cash_total|eur }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Wertpapiere</div>
+        <div class="kpi-value tabular-nums">{{ overview.holdings_value_eur|eur }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Rendite gesamt</div>
+        <div class="kpi-value tabular-nums {{ 'positive' if overview.total_pnl_pct >= 0 else 'negative' }}">{{ overview.total_pnl_pct|pct }}</div>
+    </div>
+</div>
+
 <div id="index-bar" hx-get="/api/partial/indices" hx-trigger="every 60s" hx-swap="innerHTML">
     {% if indices %}
     <div class="index-bar">
-        {% for idx in indices %}
+        {% for idx in indices[:5] %}
         <div class="index-item">
             <span class="index-name">{{ idx.name }}</span>
-            <span class="index-value">{{ idx.value|number }}</span>
+            <span class="index-value tabular-nums">{{ idx.value|number }}</span>
             {% if idx.change_pct is not none %}
-            <span class="index-change {{ 'positive' if idx.change_pct >= 0 else 'negative' }}">
-                {{ idx.change_pct|pct }}
-            </span>
+            <span class="index-change tabular-nums {{ 'positive' if idx.change_pct >= 0 else 'negative' }}">{{ idx.change_pct|pct }}</span>
             {% endif %}
         </div>
         {% endfor %}
@@ -43,91 +68,57 @@
     {% endif %}
 </div>
 
-<!-- KPI Cards (5 statt 6, wichtigste zuerst) -->
-<div class="kpi-grid">
-    <div class="kpi-card">
-        <div class="kpi-label">Gesamtvermögen</div>
-        <div class="kpi-value">{{ overview.total_value_eur|eur }}</div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-label">Wertpapiere</div>
-        <div class="kpi-value">{{ overview.holdings_value_eur|eur }}</div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-label">Liquide Mittel</div>
-        <div class="kpi-value">{{ overview.cash_total|eur }}</div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-label">Gewinn / Verlust</div>
-        <div class="kpi-value {{ 'positive' if overview.total_pnl_eur >= 0 else 'negative' }}">
-            {{ overview.total_pnl_eur|eur }}
-        </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-label">Rendite</div>
-        <div class="kpi-value {{ 'positive' if overview.total_pnl_pct >= 0 else 'negative' }}">
-            {{ overview.total_pnl_pct|pct }}
-        </div>
-    </div>
-</div>
-
-<!-- Charts Row -->
-<div class="charts-grid">
+<div class="charts-grid" style="grid-template-columns: repeat(2, 1fr);">
     <div class="card">
-        <div class="card-title">Portfolio-Zusammensetzung</div>
-        <div class="chart-container" style="position: relative; height: 320px;">
-            <canvas id="allocationChart"></canvas>
-        </div>
+        <div class="card-title">Portfolio-Komposition</div>
+        <div id="allocationChart" style="height: 340px;"></div>
     </div>
-
     <div class="card">
-        <div class="card-title">Vermögensentwicklung</div>
-        <div class="chart-container" style="height: 320px;">
+        <div class="card-title">Vermoegensentwicklung</div>
+        <div class="chart-container" style="height: 340px;">
             {% if snapshots %}
             <div id="tvChart" style="width: 100%; height: 100%;"></div>
             {% else %}
-            <div class="empty-state">
-                <div class="empty-state-text">Noch keine historischen Daten</div>
-                <div class="empty-state-hint">Erscheint nach dem ersten Monatsreport</div>
+            <div class="empty-state-v2">
+                <div class="empty-state-icon">◔</div>
+                <div class="empty-state-title">Noch keine Historie</div>
+                <div class="empty-state-body">Erscheint nach dem ersten monatlichen Snapshot.</div>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Holdings Table -->
-<div class="card">
-    <div class="card-title">Positionen ({{ overview.position_count }})</div>
+<div class="card" style="margin-top: var(--space-4);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
+        <div class="card-title" style="margin:0;">Top 5 Holdings</div>
+        <a href="/portfolio" style="font-size: var(--text-xs); color: var(--accent); text-decoration: none;">Alle ansehen →</a>
+    </div>
     <div class="table-wrapper">
-        <table id="holdingsTable">
+        <table>
             <thead>
                 <tr>
-                    <th onclick="sortTable(0)">Name</th>
-                    <th onclick="sortTable(1)">Ticker</th>
-                    <th onclick="sortTable(2)">Konto</th>
-                    <th class="text-right" onclick="sortTable(3, true)">Stück</th>
-                    <th class="text-right" onclick="sortTable(4, true)">Kurs</th>
-                    <th class="text-right" onclick="sortTable(5, true)">Wert</th>
-                    <th class="text-right" onclick="sortTable(6, true)">P&L</th>
-                    <th class="text-right" onclick="sortTable(7, true)">P&L %</th>
-                    <th class="text-right" onclick="sortTable(8, true)">Anteil</th>
+                    <th>Name</th>
+                    <th>Ticker</th>
+                    <th>Trend 30T</th>
+                    <th class="text-right">Wert</th>
+                    <th class="text-right">P&L %</th>
                 </tr>
             </thead>
             <tbody>
-                {% for pos in overview.positions %}
+                {% for pos in overview.positions[:5] %}
                 <tr>
                     <td>{{ pos.name }}</td>
                     <td><span class="ticker-badge">{{ pos.ticker or '–' }}</span></td>
-                    <td class="text-muted">{{ overview.accounts_grouped[pos.account].display_name if pos.account in overview.accounts_grouped else pos.account }}</td>
-                    <td class="text-right">{{ pos.shares|number }}</td>
-                    <td class="text-right">
-                        {{ pos.current_price_eur|eur }}
-                        {% if not pos.has_live_price %}<span class="text-yellow" style="font-size:10px;">&#9888;</span>{% endif %}
+                    <td>
+                        {% if pos.sparkline %}
+                        <span class="sparkline" data-sparkline="{{ pos.sparkline|tojson }}" data-width="90" data-height="22"></span>
+                        {% else %}
+                        <span class="text-muted" style="font-size:var(--text-xs);">—</span>
+                        {% endif %}
                     </td>
-                    <td class="text-right" style="font-weight: 600;">{{ pos.current_value_eur|eur }}</td>
-                    <td class="text-right {{ 'positive' if pos.pnl_eur >= 0 else 'negative' }}">{{ pos.pnl_eur|eur }}</td>
-                    <td class="text-right {{ 'positive' if pos.pnl_pct >= 0 else 'negative' }}">{{ pos.pnl_pct|pct }}</td>
-                    <td class="text-right text-muted">{{ pos.allocation_pct }}%</td>
+                    <td class="text-right tabular-nums" style="font-weight:600;">{{ pos.current_value_eur|eur }}</td>
+                    <td class="text-right tabular-nums {{ 'positive' if pos.pnl_pct >= 0 else 'negative' }}">{{ pos.pnl_pct|pct }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -138,121 +129,85 @@
 
 {% block scripts %}
 <script>
+const h = new Date().getHours();
+const greeting = h < 11 ? 'Guten Morgen' : h < 17 ? 'Guten Tag' : h < 22 ? 'Guten Abend' : 'Gute Nacht';
+document.getElementById('heroGreeting').textContent = greeting + ', Max.';
+
+const snaps = {{ snapshots|tojson }};
+if (snaps.length >= 2) {
+    const last = snaps[snaps.length-1].total_value || snaps[snaps.length-1].portfolio_value || 0;
+    const prev = snaps[snaps.length-2].total_value || snaps[snaps.length-2].portfolio_value || 0;
+    const delta = last - prev;
+    const pct = prev > 0 ? (delta/prev*100) : 0;
+    const el = document.getElementById('heroDelta');
+    el.className = 'kpi-hero-delta tabular-nums ' + (delta >= 0 ? 'positive' : 'negative');
+    el.textContent = (delta >= 0 ? '+' : '') + delta.toLocaleString('de-DE', {minimumFractionDigits:0, maximumFractionDigits:0}) + '€  (' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
+}
+
 const positions = {{ overview.positions|tojson }};
 const holdingsValueEur = {{ overview.holdings_value_eur }};
-const snapshots = {{ snapshots|tojson }};
 
-function formatEur(val) {
-    if (val == null) return '–';
-    return val.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '€';
-}
-
-// ─── Table sorting ───
-let currentSortCol = -1, sortAsc = false;
-function sortTable(colIdx, numeric) {
-    const table = document.getElementById('holdingsTable');
-    const tbody = table.tBodies[0];
-    const rows = Array.from(tbody.rows);
-    if (currentSortCol === colIdx) { sortAsc = !sortAsc; } else { currentSortCol = colIdx; sortAsc = !numeric; }
-    rows.sort((a, b) => {
-        let va = a.cells[colIdx].textContent.trim().replace(/[€%▲▼+.]/g, '').replace(',', '.');
-        let vb = b.cells[colIdx].textContent.trim().replace(/[€%▲▼+.]/g, '').replace(',', '.');
-        if (numeric) { va = parseFloat(va) || 0; vb = parseFloat(vb) || 0; }
-        else { va = va.toLowerCase(); vb = vb.toLowerCase(); }
-        return sortAsc ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0);
-    });
-    rows.forEach(r => tbody.appendChild(r));
-}
-
-// ─── Donut Chart (Top 8 + Sonstige, Namen statt ISINs) ───
-const allocationCtx = document.getElementById('allocationChart');
-if (allocationCtx && positions.length > 0) {
-    const sorted = [...positions].sort((a, b) => b.current_value_eur - a.current_value_eur);
+if (positions.length > 0 && typeof ApexCharts !== 'undefined' && window.VeloraApex) {
+    const sorted = [...positions].sort((a,b) => b.current_value_eur - a.current_value_eur);
     const top = sorted.slice(0, 8);
     const rest = sorted.slice(8);
-    const restValue = rest.reduce((sum, p) => sum + p.current_value_eur, 0);
-
+    const restValue = rest.reduce((s,p) => s + p.current_value_eur, 0);
     const labels = top.map(p => {
-        // Name bevorzugen wenn Ticker eine ISIN ist oder zu lang
         if (p.ticker && p.ticker.length <= 6 && !p.ticker.startsWith('AT0')) return p.ticker;
-        return p.name.length > 22 ? p.name.substring(0, 20) + '…' : p.name;
+        return p.name.length > 22 ? p.name.substring(0,20) + '…' : p.name;
     });
     const values = top.map(p => p.current_value_eur);
-    if (restValue > 0) {
-        labels.push('Sonstige (' + rest.length + ')');
-        values.push(restValue);
-    }
-
-    const colors = window.VeloraChartTheme.colors;
-
-    new Chart(allocationCtx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderColor: VeloraChartTheme.bodyBg(), borderWidth: 2 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '62%',
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: { color: VeloraChartTheme.text(), font: { size: 11 }, padding: 8, usePointStyle: true, pointStyleWidth: 8 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => {
-                            const val = ctx.parsed;
-                            const pct = (val / holdingsValueEur * 100).toFixed(1);
-                            return ' ' + formatEur(val) + ' (' + pct + '%)';
-                        }
+    if (restValue > 0) { labels.push('Sonstige (' + rest.length + ')'); values.push(restValue); }
+    const base = window.VeloraApex.baseOptions();
+    const options = Object.assign({}, base, {
+        chart: Object.assign({}, base.chart, { type: 'donut', height: 340 }),
+        series: values,
+        labels: labels,
+        stroke: { colors: [VeloraChartTheme.bodyBg()], width: 2 },
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '65%',
+                    labels: {
+                        show: true,
+                        name: { show: true, fontSize: '12px', color: VeloraChartTheme.textMuted() },
+                        value: { show: true, fontSize: '18px', fontFamily: 'Inter', fontWeight: 700, color: VeloraChartTheme.textPrimary(), formatter: v => Number(v).toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0}) + '€' },
+                        total: { show: true, label: 'Wertpapiere', formatter: () => holdingsValueEur.toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0}) + '€' }
                     }
-                }
+                },
+                expandOnClick: true,
             }
         },
-        plugins: [{
-            id: 'centerText',
-            beforeDraw: function(chart) {
-                const { ctx } = chart;
-                const cx = chart.chartArea.left + (chart.chartArea.right - chart.chartArea.left) / 2;
-                const cy = chart.chartArea.top + (chart.chartArea.bottom - chart.chartArea.top) / 2;
-                ctx.save();
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.font = 'bold 16px Inter, -apple-system, sans-serif';
-                ctx.fillStyle = VeloraChartTheme.textPrimary();
-                ctx.fillText(formatEur(holdingsValueEur), cx, cy - 6);
-                ctx.font = '10px Inter, -apple-system, sans-serif';
-                ctx.fillStyle = VeloraChartTheme.textMuted();
-                ctx.fillText('Wertpapiere', cx, cy + 12);
-                ctx.restore();
-            }
-        }]
+        legend: Object.assign({}, base.legend, { position: 'right', fontSize: '11px', markers: { width: 8, height: 8 } }),
+        tooltip: Object.assign({}, base.tooltip, {
+            y: { formatter: v => v.toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0}) + '€' }
+        }),
     });
+    new ApexCharts(document.getElementById('allocationChart'), options).render();
 }
 
-// ─── TradingView Chart ───
-const tvContainer = document.getElementById('tvChart');
-if (tvContainer && snapshots.length > 0 && typeof LightweightCharts !== 'undefined') {
-    const chart = LightweightCharts.createChart(tvContainer, {
-        layout: { background: { type: 'solid', color: 'rgba(0,0,0,0)' }, textColor: VeloraChartTheme.text(), fontFamily: 'Inter, -apple-system, sans-serif' },
+const tvC = document.getElementById('tvChart');
+if (tvC && snaps.length > 0 && typeof LightweightCharts !== 'undefined') {
+    const chart = LightweightCharts.createChart(tvC, {
+        layout: { background: { type:'solid', color:'rgba(0,0,0,0)' }, textColor: VeloraChartTheme.text(), fontFamily: 'Inter' },
         grid: { vertLines: { color: VeloraChartTheme.grid() }, horzLines: { color: VeloraChartTheme.grid() } },
         rightPriceScale: { borderColor: VeloraChartTheme.border() },
         timeScale: { borderColor: VeloraChartTheme.border(), timeVisible: false },
         crosshair: { horzLine: { color: VeloraChartTheme.accent(), labelBackgroundColor: VeloraChartTheme.accent() }, vertLine: { color: VeloraChartTheme.accent(), labelBackgroundColor: VeloraChartTheme.accent() } },
     });
-    const series = chart.addAreaSeries({
-        lineColor: VeloraChartTheme.accent(), topColor: 'rgba(34,211,238,0.35)', bottomColor: 'rgba(34,211,238,0.0)',
-        lineWidth: 2, priceFormat: { type: 'custom', formatter: p => formatEur(p) },
+    const s = chart.addAreaSeries({
+        lineColor: VeloraChartTheme.accent(),
+        topColor: 'rgba(34, 211, 238, 0.35)',
+        bottomColor: 'rgba(34, 211, 238, 0.0)',
+        lineWidth: 2,
+        priceFormat: { type: 'custom', formatter: p => p.toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0}) + '€' },
     });
-    const data = snapshots.map(s => ({ time: s.date || s.month || '', value: s.total_value || s.portfolio_value || 0 })).filter(d => d.time && d.value > 0);
-    series.setData(data);
+    const data = snaps.map(x => ({ time: x.date || x.month || '', value: x.total_value || x.portfolio_value || 0 })).filter(d => d.time && d.value > 0);
+    s.setData(data);
     chart.timeScale().fitContent();
-    new ResizeObserver(() => { chart.applyOptions({ width: tvContainer.clientWidth, height: tvContainer.clientHeight }); }).observe(tvContainer);
+    new ResizeObserver(() => chart.applyOptions({ width: tvC.clientWidth, height: tvC.clientHeight })).observe(tvC);
 }
 
-// ─── Refresh ───
 function triggerRefresh() {
     const btn = document.getElementById('refresh-btn');
     btn.classList.add('loading'); btn.disabled = true;
@@ -264,11 +219,6 @@ function triggerRefresh() {
     }).catch(() => { btn.classList.remove('loading'); btn.disabled = false; });
 }
 
-// ─── ESC schließt Modals ───
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
-    }
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open')); });
 </script>
 {% endblock %}

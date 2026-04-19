@@ -5,28 +5,82 @@
 <div class="page-header">
     <div>
         <h1 class="page-title">Einstellungen</h1>
-        <div class="page-subtitle">API Keys, Sprache, Zeitplan & mehr</div>
+        <div class="page-subtitle">Profil, APIs, Automation und Depot</div>
     </div>
 </div>
 
+<div class="settings-tabs" role="tablist">
+    <button type="button" class="settings-tab-btn active" data-tab="profile" role="tab" aria-selected="true">Profil</button>
+    <button type="button" class="settings-tab-btn" data-tab="api" role="tab" aria-selected="false">API-Keys</button>
+    <button type="button" class="settings-tab-btn" data-tab="automation" role="tab" aria-selected="false">Automation</button>
+    <button type="button" class="settings-tab-btn" data-tab="depot" role="tab" aria-selected="false">Depot</button>
+</div>
+
 <form id="settingsForm" onsubmit="saveSettings(event)">
+
+<!-- ======== PROFIL ======== -->
+<div data-tab-content="profile">
 
 <!-- Sprache -->
 <div class="card" style="margin-bottom: 16px;">
     <div class="card-title">Sprache / Language</div>
     <div style="display: flex; gap: 12px;">
-        <label style="flex: 1; padding: 12px; background: var(--bg-primary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s;" id="lang-de" onclick="selectLang('de')">
+        <label style="flex: 1; padding: 12px; background: var(--glass-bg); border: 2px solid var(--glass-border); border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s;" id="lang-de" onclick="selectLang('de')">
             <input type="radio" name="language" value="de" {% if settings.get('user', {}).get('language') == 'de' %}checked{% endif %} style="display:none;">
-            <div style="font-size: 24px; margin-bottom: 4px;">🇦🇹</div>
-            <div style="font-weight: 600;">Deutsch</div>
+            <div style="font-weight: 600;">Deutsch (AT)</div>
         </label>
-        <label style="flex: 1; padding: 12px; background: var(--bg-primary); border: 2px solid var(--border); border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s;" id="lang-en" onclick="selectLang('en')">
+        <label style="flex: 1; padding: 12px; background: var(--glass-bg); border: 2px solid var(--glass-border); border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s;" id="lang-en" onclick="selectLang('en')">
             <input type="radio" name="language" value="en" {% if settings.get('user', {}).get('language') == 'en' %}checked{% endif %} style="display:none;">
-            <div style="font-size: 24px; margin-bottom: 4px;">🇬🇧</div>
             <div style="font-weight: 600;">English</div>
         </label>
     </div>
 </div>
+
+<!-- Währung & Steuer -->
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-title">Währung & Steuer</div>
+    <div style="margin-bottom: 14px;">
+        <label class="field-label">Standard-Währung beim Trade-Logging</label>
+        <div style="display: flex; gap: 10px;">
+            {% set cur_mode = settings.get('user', {}).get('default_currency', 'EUR') %}
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--glass-border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="default_currency" value="EUR" {% if cur_mode == 'EUR' %}checked{% endif %}>
+                EUR
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--glass-border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="default_currency" value="USD" {% if cur_mode == 'USD' %}checked{% endif %}>
+                USD
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--glass-border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="default_currency" value="mixed" {% if cur_mode == 'mixed' %}checked{% endif %}>
+                Mixed
+            </label>
+        </div>
+    </div>
+    <div>
+        <label class="field-label">KESt-Berechnung</label>
+        <div style="display: flex; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--glass-border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="kest_mode" value="per_account" {% if settings.get('user', {}).get('kest_mode', 'per_account') == 'per_account' %}checked{% endif %}>
+                Pro Depot
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--glass-border); font-size: 13px;"
+                   onclick="this.querySelector('input').checked=true">
+                <input type="radio" name="kest_mode" value="total" {% if settings.get('user', {}).get('kest_mode') == 'total' %}checked{% endif %}>
+                Gesamt
+            </label>
+        </div>
+    </div>
+</div>
+
+</div><!-- /profile -->
+
+<!-- ======== API KEYS ======== -->
+<div data-tab-content="api" hidden>
 
 <!-- Telegram -->
 <div class="card" style="margin-bottom: 16px;">
@@ -34,8 +88,11 @@
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         <div>
             <label class="field-label">Bot Token</label>
-            <input type="password" name="telegram_bot_token" value="{{ settings.get('telegram', {}).get('bot_token', '') }}"
-                   placeholder="123456:ABC..." class="field-input">
+            <div class="secret-field">
+                <input type="password" name="telegram_bot_token" value="{{ settings.get('telegram', {}).get('bot_token', '') }}"
+                       placeholder="123456:ABC..." class="field-input">
+                <button type="button" class="secret-toggle" data-secret-toggle>Zeigen</button>
+            </div>
         </div>
         <div>
             <label class="field-label">Chat ID</label>
@@ -47,83 +104,69 @@
 
 <!-- API Keys -->
 <div class="card" style="margin-bottom: 16px;">
-    <div class="card-title">API Keys</div>
+    <div class="card-title">Externe APIs</div>
     <div style="display: grid; gap: 12px;">
         <div>
             <label class="field-label">Brave Search <span class="text-muted">(News-Recherche, 2000 Abfragen/Monat gratis)</span></label>
-            <input type="password" name="brave_api_key" value="{{ settings.get('brave_search', {}).get('api_key', '') }}"
-                   placeholder="BSA..." class="field-input">
+            <div class="secret-field">
+                <input type="password" name="brave_api_key" value="{{ settings.get('brave_search', {}).get('api_key', '') }}"
+                       placeholder="BSA..." class="field-input">
+                <button type="button" class="secret-toggle" data-secret-toggle>Zeigen</button>
+            </div>
         </div>
         <div>
             <label class="field-label">FRED <span class="text-muted">(US-Makrodaten, gratis auf fred.stlouisfed.org)</span></label>
-            <input type="password" name="fred_api_key" value="{{ settings.get('fred', {}).get('api_key', '') }}"
-                   placeholder="abc123..." class="field-input">
+            <div class="secret-field">
+                <input type="password" name="fred_api_key" value="{{ settings.get('fred', {}).get('api_key', '') }}"
+                       placeholder="abc123..." class="field-input">
+                <button type="button" class="secret-toggle" data-secret-toggle>Zeigen</button>
+            </div>
         </div>
         <div>
             <label class="field-label">Finnhub <span class="text-muted">(Sentiment & News, gratis auf finnhub.io)</span></label>
-            <input type="password" name="finnhub_api_key" value="{{ settings.get('finnhub', {}).get('api_key', '') }}"
-                   placeholder="abc123..." class="field-input">
+            <div class="secret-field">
+                <input type="password" name="finnhub_api_key" value="{{ settings.get('finnhub', {}).get('api_key', '') }}"
+                       placeholder="abc123..." class="field-input">
+                <button type="button" class="secret-toggle" data-secret-toggle>Zeigen</button>
+            </div>
         </div>
     </div>
 </div>
+
+</div><!-- /api -->
+
+<!-- ======== AUTOMATION ======== -->
+<div data-tab-content="automation" hidden>
 
 <!-- Briefing-Zeitplan -->
 <div class="card" style="margin-bottom: 16px;">
     <div class="card-title">Briefing-Zeitplan</div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        <div>
-            <label class="field-label">Briefing-Tage</label>
-            <input type="text" name="briefing_days" value="{{ settings.get('schedule', {}).get('briefing_days', ['monday','thursday'])|join(', ') }}"
-                   placeholder="monday, thursday" class="field-input">
-        </div>
-        <div>
-            <label class="field-label">Briefing-Uhrzeit</label>
-            <input type="time" name="briefing_time" value="{{ settings.get('schedule', {}).get('briefing_time', '07:00') }}"
-                   class="field-input">
-        </div>
-    </div>
-</div>
-
-<!-- Währung & Steuer -->
-<div class="card" style="margin-bottom: 16px;">
-    <div class="card-title">Währung & Steuer</div>
+    {% set _raw_days = settings.get('schedule', {}).get('briefing_days', ['monday','thursday']) %}
+    {% if _raw_days is string %}{% set _raw_days = _raw_days.replace(' ', '').split(',') %}{% endif %}
+    {% set _active_days = [] %}
+    {% for d in _raw_days %}{% set _ = _active_days.append(d|lower) %}{% endfor %}
     <div style="margin-bottom: 14px;">
-        <label class="field-label">Standard-Währung beim Trade-Logging</label>
-        <div style="display: flex; gap: 10px;">
-            {% set cur_mode = settings.get('user', {}).get('default_currency', 'EUR') %}
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
-                   onclick="this.querySelector('input').checked=true">
-                <input type="radio" name="default_currency" value="EUR" {% if cur_mode == 'EUR' %}checked{% endif %}>
-                EUR
+        <label class="field-label">Briefing-Tage</label>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            {% for day, label in [('monday','Mo'), ('tuesday','Di'), ('wednesday','Mi'), ('thursday','Do'), ('friday','Fr'), ('saturday','Sa'), ('sunday','So')] %}
+            <label class="day-chip">
+                <input type="checkbox" name="briefing_days" value="{{ day }}" {% if day in _active_days %}checked{% endif %}>
+                <span>{{ label }}</span>
             </label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
-                   onclick="this.querySelector('input').checked=true">
-                <input type="radio" name="default_currency" value="USD" {% if cur_mode == 'USD' %}checked{% endif %}>
-                USD
-            </label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
-                   onclick="this.querySelector('input').checked=true">
-                <input type="radio" name="default_currency" value="mixed" {% if cur_mode == 'mixed' %}checked{% endif %}>
-                Mixed
-            </label>
+            {% endfor %}
         </div>
     </div>
     <div>
-        <label class="field-label">KESt-Berechnung</label>
-        <div style="display: flex; gap: 10px;">
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
-                   onclick="this.querySelector('input').checked=true">
-                <input type="radio" name="kest_mode" value="per_account" {% if settings.get('user', {}).get('kest_mode', 'per_account') == 'per_account' %}checked{% endif %}>
-                Pro Depot
-            </label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px;"
-                   onclick="this.querySelector('input').checked=true">
-                <input type="radio" name="kest_mode" value="total" {% if settings.get('user', {}).get('kest_mode') == 'total' %}checked{% endif %}>
-                Gesamt
-            </label>
-        </div>
+        <label class="field-label">Briefing-Uhrzeit</label>
+        <input type="time" name="briefing_time" value="{{ settings.get('schedule', {}).get('briefing_time', '07:00') }}"
+               class="field-input" style="max-width: 200px;">
     </div>
 </div>
+
+</div><!-- /automation -->
+
+<!-- ======== DEPOT ======== -->
+<div data-tab-content="depot" hidden>
 
 <!-- Web Dashboard -->
 <div class="card" style="margin-bottom: 16px;">
@@ -165,11 +208,15 @@
     </div>
 </div>
 
-<!-- Save Button -->
-<div id="settingsMsg" style="display:none; margin-bottom: 12px; padding: 10px 14px; border-radius: 8px; font-size: 13px;"></div>
-<button type="submit" class="btn btn-accent" id="settingsSaveBtn" style="width: 100%; justify-content: center; padding: 12px;">
-    Einstellungen speichern
-</button>
+</div><!-- /depot -->
+
+<!-- Sticky Save Bar -->
+<div id="settingsMsg" style="display:none; margin: 16px 0; padding: 10px 14px; border-radius: 8px; font-size: 13px;"></div>
+<div class="settings-sticky-bar">
+    <button type="submit" class="btn btn-accent" id="settingsSaveBtn">
+        Alle Einstellungen speichern
+    </button>
+</div>
 
 </form>
 {% endblock %}
@@ -186,31 +233,156 @@
 .field-input {
     width: 100%;
     padding: 8px 12px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     border-radius: 8px;
     color: var(--text-primary);
     font-size: 14px;
     font-family: inherit;
+    transition: border-color var(--dur-fast) var(--ease-apple);
 }
 .field-input:focus {
     outline: none;
     border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-ring);
 }
 .lang-selected {
     border-color: var(--accent) !important;
     background: var(--accent-bg) !important;
 }
+
+/* Settings-Tabs */
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: var(--space-5);
+    border-bottom: 1px solid var(--glass-border);
+    overflow-x: auto;
+}
+.settings-tab-btn {
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all var(--dur-fast) var(--ease-apple);
+    white-space: nowrap;
+}
+.settings-tab-btn:hover { color: var(--text-primary); }
+.settings-tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* Day-Chips */
+.day-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    transition: all var(--dur-fast) var(--ease-apple);
+}
+.day-chip:hover { color: var(--text-primary); }
+.day-chip input { cursor: pointer; accent-color: var(--accent); }
+.day-chip:has(input:checked) {
+    background: var(--accent-bg);
+    border-color: var(--accent-ring);
+    color: var(--accent);
+}
+
+/* Secret-Field mit Reveal */
+.secret-field {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+}
+.secret-field .field-input { padding-right: 70px; }
+.secret-toggle {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all var(--dur-fast) var(--ease-apple);
+}
+.secret-toggle:hover { color: var(--text-primary); border-color: var(--glass-border-strong); }
+
+/* Sticky Save Bar */
+.settings-sticky-bar {
+    position: sticky;
+    bottom: 0;
+    padding: var(--space-4) 0 var(--space-5);
+    background: linear-gradient(to top, var(--bg-body) 60%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+    display: flex;
+    justify-content: flex-end;
+}
+.settings-sticky-bar .btn { min-width: 240px; justify-content: center; padding: 12px 20px; }
 </style>
 
 <script>
+// Tab-Switching
+document.querySelectorAll('.settings-tab-btn').forEach(b => {
+    b.addEventListener('click', () => {
+        const tab = b.dataset.tab;
+        document.querySelectorAll('.settings-tab-btn').forEach(x => {
+            const active = x === b;
+            x.classList.toggle('active', active);
+            x.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('[data-tab-content]').forEach(c => {
+            c.hidden = c.dataset.tabContent !== tab;
+        });
+        // Persist last tab for reload nach Save
+        try { localStorage.setItem('velora_settings_tab', tab); } catch (_) {}
+    });
+});
+// Restore last tab
+try {
+    const saved = localStorage.getItem('velora_settings_tab');
+    if (saved) {
+        const btn = document.querySelector('.settings-tab-btn[data-tab="' + saved + '"]');
+        if (btn) btn.click();
+    }
+} catch (_) {}
+
+// Secret reveal toggles
+document.querySelectorAll('[data-secret-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const input = btn.parentElement.querySelector('input');
+        if (!input) return;
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.textContent = showing ? 'Zeigen' : 'Verbergen';
+    });
+});
+
 // Language selection highlight
 function selectLang(lang) {
     document.getElementById('lang-de').classList.toggle('lang-selected', lang === 'de');
     document.getElementById('lang-en').classList.toggle('lang-selected', lang === 'en');
-    document.querySelector('input[name="language"][value="' + lang + '"]').checked = true;
+    const ri = document.querySelector('input[name="language"][value="' + lang + '"]');
+    if (ri) ri.checked = true;
 }
-// Init
 selectLang('{{ settings.get("user", {}).get("language", "de") }}');
 
 function saveSettings(e) {
@@ -220,11 +392,19 @@ function saveSettings(e) {
     const btn = document.getElementById('settingsSaveBtn');
     const fd = new FormData(form);
 
-    const days = fd.get('briefing_days').split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
+    // Multi-checkbox: alle briefing_days einsammeln
+    const days = fd.getAll('briefing_days').map(d => String(d).trim().toLowerCase()).filter(Boolean);
 
     const data = {
-        user: { language: fd.get('language'), kest_mode: fd.get('kest_mode'), default_currency: fd.get('default_currency') },
-        telegram: { bot_token: fd.get('telegram_bot_token'), chat_id: fd.get('telegram_chat_id') },
+        user: {
+            language: fd.get('language'),
+            kest_mode: fd.get('kest_mode'),
+            default_currency: fd.get('default_currency'),
+        },
+        telegram: {
+            bot_token: fd.get('telegram_bot_token'),
+            chat_id: fd.get('telegram_chat_id'),
+        },
         brave_search: { api_key: fd.get('brave_api_key') },
         fred: { api_key: fd.get('fred_api_key') },
         finnhub: { api_key: fd.get('finnhub_api_key') },
@@ -233,7 +413,7 @@ function saveSettings(e) {
     };
 
     btn.disabled = true;
-    btn.textContent = 'Speichere...';
+    btn.textContent = 'Speichere…';
 
     fetch('/api/settings', {
         method: 'POST',
@@ -244,25 +424,28 @@ function saveSettings(e) {
     .then(({ ok, data: resp }) => {
         msg.style.display = 'block';
         if (ok) {
-            msg.style.background = 'var(--green-bg)';
-            msg.style.color = 'var(--green)';
-            msg.textContent = 'Einstellungen gespeichert! Seite wird neu geladen...';
-            setTimeout(() => location.reload(), 1500);
+            msg.style.background = 'var(--gain-bg)';
+            msg.style.color = 'var(--gain)';
+            msg.textContent = 'Einstellungen gespeichert. Seite wird neu geladen…';
+            if (window.toast && window.toast.success) window.toast.success('Einstellungen gespeichert');
+            setTimeout(() => location.reload(), 900);
         } else {
-            msg.style.background = 'var(--red-bg)';
-            msg.style.color = 'var(--red)';
+            msg.style.background = 'var(--loss-bg)';
+            msg.style.color = 'var(--loss)';
             msg.textContent = resp.error || 'Fehler beim Speichern';
+            if (window.toast && window.toast.error) window.toast.error(resp.error || 'Fehler beim Speichern');
             btn.disabled = false;
-            btn.textContent = 'Einstellungen speichern';
+            btn.textContent = 'Alle Einstellungen speichern';
         }
     })
     .catch(() => {
         msg.style.display = 'block';
-        msg.style.background = 'var(--red-bg)';
-        msg.style.color = 'var(--red)';
+        msg.style.background = 'var(--loss-bg)';
+        msg.style.color = 'var(--loss)';
         msg.textContent = 'Verbindungsfehler';
+        if (window.toast && window.toast.error) window.toast.error('Verbindungsfehler');
         btn.disabled = false;
-        btn.textContent = 'Einstellungen speichern';
+        btn.textContent = 'Alle Einstellungen speichern';
     });
 }
 </script>

@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Briefings — Velora{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="/static/vendor/highlight.css">
+<script src="/static/vendor/highlight.min.js" defer></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <div>
@@ -58,7 +63,11 @@
                             {{ briefing.date[11:16] if briefing.date and briefing.date|length > 16 else '' }} Uhr
                         </span>
                     </div>
-                    <div style="display: flex; gap: 8px; margin-top: 4px;">
+                    <div class="briefing-meta" style="font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px;">
+                        {% set _wc = (briefing.word_count if briefing.word_count else (briefing.full_text|wordcount if briefing.full_text else 0)) %}
+                        {% if _wc %}~{{ [1, (_wc / 200)|int]|max }} min Lesezeit{% else %}Kurz-Zusammenfassung{% endif %}
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
                         {% if briefing.recommendation_count %}
                         <span class="rec-status open">{{ briefing.recommendation_count }} Empfehlungen</span>
                         {% endif %}
@@ -66,7 +75,7 @@
                         <span class="rec-status executed">Aktionen empfohlen</span>
                         {% endif %}
                         {% if briefing.full_text %}
-                        <span style="font-size: 11px; color: var(--text-muted); padding: 2px 6px; background: var(--bg-primary); border-radius: 4px;">Volltext verfügbar</span>
+                        <span style="font-size: 11px; color: var(--text-muted); padding: 2px 6px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 4px;">Volltext verfügbar</span>
                         {% endif %}
                     </div>
                 </div>
@@ -94,9 +103,13 @@
     {% endfor %}
 {% else %}
 <div class="card">
-    <div class="empty-state">
-        <div class="empty-state-text">Noch keine Briefings</div>
-        <div class="empty-state-hint">Das erste Briefing wird automatisch am nächsten Montag oder Donnerstag um 07:00 erstellt</div>
+    <div class="empty-state-v2">
+        <div class="empty-state-icon">&#9674;</div>
+        <div class="empty-state-title">Noch keine Briefings</div>
+        <div class="empty-state-body">Velora erstellt automatisch Marktbriefings nach deinem Zeitplan. Das erste erscheint hier nach dem nächsten Sync.</div>
+        <div class="empty-state-action">
+            <a class="btn btn-accent" href="/settings">Zeitplan einrichten</a>
+        </div>
     </div>
 </div>
 {% endif %}
@@ -131,14 +144,27 @@ function toggleBriefing(id) {
     const arrow = card.querySelector('.toggle-arrow');
     if (!full) return;
 
-    if (full.style.display === 'none') {
+    const isOpen = full.classList.contains('open');
+    if (!isOpen) {
         full.style.display = 'block';
+        // nächste Frame: Klasse setzen, damit Transition greift
+        requestAnimationFrame(() => full.classList.add('open'));
         if (arrow) arrow.style.transform = 'rotate(180deg)';
     } else {
-        full.style.display = 'none';
+        full.classList.remove('open');
         if (arrow) arrow.style.transform = '';
+        // display:none nach Animation, damit Höhe nicht misst
+        setTimeout(() => { if (!full.classList.contains('open')) full.style.display = 'none'; }, 320);
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof hljs !== 'undefined') {
+        document.querySelectorAll('.briefing-content pre > code').forEach(c => {
+            try { hljs.highlightElement(c); } catch (_) {}
+        });
+    }
+});
 </script>
 
 <style>
@@ -152,6 +178,14 @@ function toggleBriefing(id) {
 .briefing-content b, .briefing-content strong {
     color: var(--text-primary);
     font-weight: 600;
+}
+.briefing-full {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s var(--ease-apple, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.briefing-full.open {
+    max-height: 120rem;
 }
 </style>
 {% endblock %}

@@ -110,10 +110,63 @@
 }
 
 .page-title {
-    font-size: var(--text-2xl);
+    font-size: 28px;
     font-weight: 700;
     color: var(--text-primary);
-    letter-spacing: -0.5px;
+    letter-spacing: var(--letter-tight);
+}
+
+.hero-greeting {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 32px;
+    letter-spacing: var(--letter-hero);
+    color: var(--text-primary);
+    margin-bottom: var(--space-3);
+}
+
+.kpi-hero {
+    padding: 28px 32px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-4);
+    align-items: center;
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glass);
+    margin-bottom: var(--space-3);
+}
+
+.kpi-hero-label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+}
+
+.kpi-hero-value {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: var(--letter-hero);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.05;
+}
+
+.kpi-hero-delta {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.kpi-hero-spark {
+    min-width: 160px;
+    text-align: right;
 }
 
 .page-subtitle {
@@ -406,10 +459,10 @@ tbody td {
 }
 
 .rec-status.open { background: var(--accent-bg); color: var(--accent); }
-.rec-status.target_hit { background: var(--green-bg); color: var(--green); }
-.rec-status.stop_hit { background: var(--red-bg); color: var(--red); }
-.rec-status.executed { background: var(--green-bg); color: var(--green); }
-.rec-status.cancelled { background: var(--yellow-bg); color: var(--yellow); }
+.rec-status.target_hit { background: var(--gain-bg); color: var(--gain); }
+.rec-status.stop_hit { background: var(--loss-bg); color: var(--loss); }
+.rec-status.executed { background: var(--gain-bg); color: var(--gain); }
+.rec-status.cancelled { background: rgba(148, 163, 184, 0.12); color: var(--text-muted); }
 
 /* ─── Modal Overlay ──────────────────────────────────── */
 

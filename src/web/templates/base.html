@@ -21,6 +21,9 @@
     <link rel="stylesheet" href="/static/css/main.css">
     <script src="/static/vendor/htmx.min.js"></script>
     <script src="/static/js/chart-theme.js"></script>
+    <script src="/static/js/sparkline.js" defer></script>
+    <script src="/static/js/toast.js" defer></script>
+    <script src="/static/js/command-palette.js" defer></script>
     {% block head %}{% endblock %}
 </head>
 <body data-page="{{ page }}">
@@ -32,6 +35,19 @@
         </filter>
       </defs>
     </svg>
+
+    <div id="cmd-palette" class="cmd-palette" hidden>
+      <div class="cmd-overlay"></div>
+      <div class="cmd-dialog glass glass-strong glass-elevated">
+        <input id="cmd-input" class="cmd-input" placeholder="Wohin? Was tun? &hellip;" autocomplete="off" spellcheck="false">
+        <ul id="cmd-results" class="cmd-results"></ul>
+        <div class="cmd-footer">
+          <span><kbd>&uarr;&darr;</kbd> navigieren</span>
+          <span><kbd>Enter</kbd> auswaehlen</span>
+          <span><kbd>Esc</kbd> schliessen</span>
+        </div>
+      </div>
+    </div>
 
     <div class="app-layout">
         {% include "components/nav.html" %}
