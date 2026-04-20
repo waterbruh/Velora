@@ -16,7 +16,7 @@
     </div>
     <button class="btn btn-accent" id="refresh-btn" onclick="triggerRefresh()">
         <span class="spinner"></span>
-        {{ t.dashboard.refresh }}
+        <span class="refresh-label">{{ t.dashboard.refresh }}</span>
     </button>
 </div>
 
@@ -220,13 +220,69 @@ if (tvC && snaps.length > 0 && typeof LightweightCharts !== 'undefined') {
 
 function triggerRefresh() {
     const btn = document.getElementById('refresh-btn');
-    btn.classList.add('loading'); btn.disabled = true;
-    fetch('/api/refresh', { method: 'POST' }).then(r => r.json()).then(data => {
-        if (data.status === 'already_running') { btn.classList.remove('loading'); btn.disabled = false; return; }
-        const poll = setInterval(() => {
-            fetch('/api/refresh/status').then(r => r.json()).then(s => { if (!s.running) { clearInterval(poll); location.reload(); } });
-        }, 3000);
-    }).catch(() => { btn.classList.remove('loading'); btn.disabled = false; });
+    const labelEl = btn.querySelector('.refresh-label');
+    const originalLabel = labelEl.textContent;
+    const MAX_WAIT_MS = 120000;  // 2 min hard cap
+    const POLL_INTERVAL = 2000;
+    const startTime = Date.now();
+    let poll = null;
+    let tick = null;
+    let consecutiveErrors = 0;
+
+    const stop = ({ success, message, detail }) => {
+        if (poll) clearInterval(poll);
+        if (tick) clearInterval(tick);
+        btn.classList.remove('loading');
+        btn.disabled = false;
+        labelEl.textContent = originalLabel;
+        if (success) {
+            location.reload();
+        } else if (message && window.toast) {
+            window.toast.warn(message, { detail });
+        }
+    };
+
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    const STR_UPDATING = LANG === 'en' ? 'Updating…' : 'Aktualisiere…';
+    const STR_STILL = LANG === 'en' ? 'Still running — data may take a bit longer' : 'Läuft weiter — Daten brauchen länger als erwartet';
+
+    // Elapsed tick for visible progress
+    tick = setInterval(() => {
+        const secs = Math.floor((Date.now() - startTime) / 1000);
+        labelEl.textContent = secs < 20 ? STR_UPDATING : STR_UPDATING + ' ' + secs + 's';
+    }, 1000);
+
+    fetch('/api/refresh', { method: 'POST' })
+        .then(r => r.json())
+        .then(() => {
+            poll = setInterval(() => {
+                if (Date.now() - startTime > MAX_WAIT_MS) {
+                    stop({ success: false, message: STR_STILL, detail: LANG === 'en' ? 'Reloading the page in the background once done.' : 'Die Seite lädt automatisch neu sobald fertig.' });
+                    // Keep polling in background without UI spin (optional reload later)
+                    const bgPoll = setInterval(() => {
+                        fetch('/api/refresh/status').then(r => r.json()).then(s => {
+                            if (!s.running) { clearInterval(bgPoll); location.reload(); }
+                        }).catch(() => {});
+                    }, 5000);
+                    return;
+                }
+                fetch('/api/refresh/status')
+                    .then(r => r.json())
+                    .then(s => {
+                        consecutiveErrors = 0;
+                        if (!s.running) stop({ success: true });
+                    })
+                    .catch(() => {
+                        consecutiveErrors++;
+                        if (consecutiveErrors >= 5) stop({ success: false, message: LANG === 'en' ? 'Connection lost' : 'Verbindung unterbrochen' });
+                    });
+            }, POLL_INTERVAL);
+        })
+        .catch(() => {
+            stop({ success: false, message: LANG === 'en' ? 'Failed to start refresh' : 'Refresh konnte nicht gestartet werden' });
+        });
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open')); });

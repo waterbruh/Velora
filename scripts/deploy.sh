@@ -54,6 +54,8 @@ scp "$LOCAL_DIR"/config/*.example.json $REMOTE:$REMOTE_DIR/config/
 scp "$LOCAL_DIR"/requirements.txt $REMOTE:$REMOTE_DIR/
 scp "$LOCAL_DIR"/setup.py $REMOTE:$REMOTE_DIR/
 scp "$LOCAL_DIR"/scripts/setup_rockpi.sh $REMOTE:$REMOTE_DIR/scripts/
+scp "$LOCAL_DIR"/scripts/system_update.sh $REMOTE:$REMOTE_DIR/scripts/ 2>/dev/null || true
+ssh $REMOTE "chmod +x $REMOTE_DIR/scripts/*.sh 2>/dev/null || true"
 
 # 5. Live-State-Files NUR mit --with-config kopieren.
 #    Ohne Flag werden diese Files NICHT angefasst — sonst überschreibt der Deploy

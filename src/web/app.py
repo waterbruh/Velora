@@ -4,6 +4,7 @@ FastAPI Web-Dashboard für Velora.
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -518,6 +519,91 @@ async def api_get_settings():
         "web": settings.get("web", {}),
     }
     return JSONResponse(safe)
+
+
+# ─── System Update ───────────────────────────────────────────
+
+@app.get("/api/system/version")
+async def api_system_version():
+    """Gibt aktuelle Git-Version + Commit-Subject zurück."""
+    import subprocess as _sp
+    repo_dir = Path(__file__).parent.parent.parent
+    try:
+        head = _sp.run(["git", "-C", str(repo_dir), "rev-parse", "HEAD"],
+                       capture_output=True, text=True, timeout=5)
+        if head.returncode != 0:
+            return JSONResponse({"available": False, "reason": "not_a_git_repo"})
+        sha = head.stdout.strip()
+        subject = _sp.run(["git", "-C", str(repo_dir), "log", "-1", "--format=%s"],
+                          capture_output=True, text=True, timeout=5).stdout.strip()
+        date = _sp.run(["git", "-C", str(repo_dir), "log", "-1", "--format=%cI"],
+                       capture_output=True, text=True, timeout=5).stdout.strip()
+        # Optional: check ob Updates verfuegbar (fetch erforderlich — lassen wir
+        # raus um Netzwerk-Latenz im Page-Load zu vermeiden)
+        return JSONResponse({
+            "available": True,
+            "sha": sha,
+            "short_sha": sha[:7],
+            "subject": subject,
+            "date": date,
+        })
+    except FileNotFoundError:
+        return JSONResponse({"available": False, "reason": "git_not_installed"})
+    except Exception as e:
+        return JSONResponse({"available": False, "reason": str(e)[:200]})
+
+
+@app.post("/api/system/update")
+async def api_system_update():
+    """Fuehrt git pull aus und startet velora-web + velora-bot neu.
+    Portfolio-/Config-Daten in .gitignore werden nicht angefasst.
+    Restart wird detached gestartet, damit die HTTP-Response durchkommt."""
+    import subprocess as _sp
+    repo_dir = Path(__file__).parent.parent.parent
+    script = repo_dir / "scripts" / "system_update.sh"
+
+    if not script.exists():
+        return JSONResponse({"status": "error", "error": "update_script_missing"}, status_code=500)
+
+    try:
+        result = _sp.run(["bash", str(script)], capture_output=True, text=True, timeout=60,
+                         env={"VELORA_REPO_DIR": str(repo_dir), "PATH": os.environ.get("PATH", "")})
+    except _sp.TimeoutExpired:
+        return JSONResponse({"status": "error", "error": "update_timeout"}, status_code=504)
+    except Exception as e:
+        return JSONResponse({"status": "error", "error": str(e)[:200]}, status_code=500)
+
+    stdout_last = (result.stdout or "").strip().splitlines()[-1] if result.stdout else ""
+    stderr_tail = (result.stderr or "").strip()[-400:]
+
+    import json as _json
+    parsed = None
+    try:
+        parsed = _json.loads(stdout_last)
+    except Exception:
+        pass
+
+    if result.returncode != 0 or not parsed or parsed.get("error"):
+        return JSONResponse({
+            "status": "error",
+            "error": (parsed or {}).get("error", "update_failed"),
+            "detail": (parsed or {}).get("detail") or stderr_tail,
+        }, status_code=500)
+
+    # Restart detached — response muss zuerst raus.
+    # sleep 2 gibt dem Browser Zeit, die Response zu empfangen.
+    try:
+        _sp.Popen(
+            ["bash", "-c", "sleep 2 && systemctl restart velora-web velora-bot"],
+            stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+            start_new_session=True,
+        )
+        parsed["restart_scheduled"] = True
+    except Exception as e:
+        parsed["restart_scheduled"] = False
+        parsed["restart_error"] = str(e)[:200]
+
+    return JSONResponse(parsed)
 
 
 @app.post("/api/refresh")

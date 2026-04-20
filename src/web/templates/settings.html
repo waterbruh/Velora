@@ -204,7 +204,30 @@
     {% endfor %}
     {% endif %}
     <div class="text-muted" style="font-size: 12px; margin-top: 8px;">
-        Portfolio-Positionen können über die Portfolio-Seite ("+ Trade loggen") oder per Telegram-Bot aktualisiert werden.
+        {% if lang == 'en' %}Portfolio positions can be updated via the Portfolio page ("+ Log Trade") or the Telegram bot.{% else %}Portfolio-Positionen können über die Portfolio-Seite ("+ Trade loggen") oder per Telegram-Bot aktualisiert werden.{% endif %}
+    </div>
+</div>
+
+<!-- System & Updates -->
+<div class="card" style="margin-bottom: 16px;">
+    <div class="card-title">{% if lang == 'en' %}System & Updates{% else %}System & Updates{% endif %}</div>
+    <div style="display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;">
+        <div style="min-width: 0;">
+            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">
+                {% if lang == 'en' %}Current version{% else %}Aktuelle Version{% endif %}
+            </div>
+            <div id="sys-version" style="font-size: 14px; color: var(--text-primary); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span class="text-muted">…</span>
+            </div>
+            <div id="sys-subject" style="font-size: 12px; color: var(--text-muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></div>
+        </div>
+        <button type="button" class="btn btn-accent" id="sys-update-btn" style="flex-shrink: 0;">
+            <span class="spinner"></span>
+            {% if lang == 'en' %}Update now{% else %}Jetzt aktualisieren{% endif %}
+        </button>
+    </div>
+    <div class="text-muted" style="font-size: 12px; margin-top: 12px; line-height: 1.5;">
+        {% if lang == 'en' %}Pulls latest code from GitHub, restarts web &amp; bot services. Portfolio, settings and cache data stay untouched (protected by .gitignore).{% else %}Holt den neuesten Code von GitHub und startet den Web- und Bot-Service neu. Portfolio-, Settings- und Cache-Daten bleiben unberührt (durch .gitignore geschützt).{% endif %}
     </div>
 </div>
 
@@ -384,6 +407,87 @@ function selectLang(lang) {
     if (ri) ri.checked = true;
 }
 selectLang('{{ settings.get("user", {}).get("language", "de") }}');
+
+// System-Update-Card: Version laden + Update-Button
+(function() {
+    const LANG = {{ lang|tojson }};
+    const STR = LANG === 'en' ? {
+        updating: 'Updating…',
+        reloading: 'Restarting services — reloading in a few seconds',
+        uptodate: 'Already up-to-date',
+        updated: 'Updated successfully',
+        error: 'Update failed',
+        confirm: 'Pull the latest version and restart services? Portfolio data stays safe.',
+        update_now: 'Update now',
+    } : {
+        updating: 'Aktualisiere…',
+        reloading: 'Services starten neu — Seite lädt in ein paar Sekunden neu',
+        uptodate: 'Bereits auf dem neuesten Stand',
+        updated: 'Update erfolgreich',
+        error: 'Update fehlgeschlagen',
+        confirm: 'Neueste Version laden und Services neu starten? Portfolio-Daten bleiben sicher.',
+        update_now: 'Jetzt aktualisieren',
+    };
+
+    const verEl = document.getElementById('sys-version');
+    const subEl = document.getElementById('sys-subject');
+    const btn = document.getElementById('sys-update-btn');
+
+    // Version laden
+    fetch('/api/system/version')
+        .then(r => r.json())
+        .then(d => {
+            if (!d.available) {
+                verEl.innerHTML = '<span class="text-muted">' + (d.reason || 'unavailable') + '</span>';
+                btn.disabled = true;
+                return;
+            }
+            verEl.textContent = d.short_sha + '  ·  ' + (d.date || '').slice(0, 10);
+            if (d.subject) subEl.textContent = d.subject;
+        })
+        .catch(() => { verEl.innerHTML = '<span class="text-muted">—</span>'; });
+
+    // Update triggern
+    btn.addEventListener('click', () => {
+        if (!confirm(STR.confirm)) return;
+        btn.classList.add('loading');
+        btn.disabled = true;
+        const labelSpan = btn.childNodes[btn.childNodes.length - 1];
+        const originalText = labelSpan.textContent;
+        labelSpan.textContent = ' ' + STR.updating;
+
+        fetch('/api/system/update', { method: 'POST' })
+            .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+            .then(({ ok, data }) => {
+                if (!ok || data.status !== 'ok') {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    labelSpan.textContent = originalText;
+                    const detail = data.detail ? ': ' + String(data.detail).slice(0, 120) : '';
+                    if (window.toast) window.toast.error(STR.error, { detail: (data.error || '') + detail });
+                    return;
+                }
+                // Success: entweder changed=true (Update aktiv) oder bereits up-to-date
+                if (!data.changed) {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                    labelSpan.textContent = originalText;
+                    if (window.toast) window.toast.info(STR.uptodate);
+                    return;
+                }
+                // Changed + restart scheduled. Page wird in ~8s neu geladen.
+                if (window.toast) window.toast.success(STR.updated, { detail: data.subject || '', duration: 8000 });
+                labelSpan.textContent = ' ' + STR.reloading;
+                setTimeout(() => location.reload(), 8000);
+            })
+            .catch(() => {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                labelSpan.textContent = originalText;
+                if (window.toast) window.toast.error(STR.error);
+            });
+    });
+})();
 
 function saveSettings(e) {
     e.preventDefault();
