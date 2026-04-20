@@ -30,6 +30,7 @@ from src.chat.memory import build_full_system_prompt, build_user_message_with_hi
 from src.chat.claude_stream import stream_chat
 from src.chat.mcp_config import get_mcp_config_path, VELORA_TOOLS, CONFIRMATION_REQUIRED_TOOLS
 from src.chat.actions import execute_pending_action, reject_pending_action
+from src.chat.slash_commands import is_slash_command, handle_slash
 
 logger = logging.getLogger(__name__)
 
@@ -224,8 +225,10 @@ async def send_message(thread_id: str, body: MessageSend, request: Request):
 
         yield _sse("start", {"thread_id": thread_id})
 
-        try:
-            async for ev in stream_chat(
+        if is_slash_command(body.message):
+            stream = handle_slash(body.message)
+        else:
+            stream = stream_chat(
                 user_prompt=user_prompt,
                 system_prompt=system_prompt,
                 session_id=new_session_id,
@@ -234,7 +237,10 @@ async def send_message(thread_id: str, body: MessageSend, request: Request):
                 effort=effort,
                 mcp_config_path=get_mcp_config_path(),
                 allowed_tools=VELORA_TOOLS,
-            ):
+            )
+
+        try:
+            async for ev in stream:
                 if await request.is_disconnected():
                     logger.info("Client disconnected, cancelling stream")
                     break
