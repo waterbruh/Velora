@@ -116,11 +116,32 @@ def _get_lang() -> str:
     return _load_settings().get("user", {}).get("language", "de")
 
 
+def _compute_asset_version() -> str:
+    """Einmal beim Start berechneter Cache-Bust-Key fuer Static-Assets.
+    Nutzt current Git-SHA wenn verfuegbar, sonst Process-Start-Zeit."""
+    import subprocess as _sp
+    import time as _time
+    try:
+        repo = Path(__file__).parent.parent.parent
+        res = _sp.run(
+            ["git", "-c", f"safe.directory={repo}", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=3,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            return res.stdout.strip()
+    except Exception:
+        pass
+    return str(int(_time.time()))
+
+
+_ASSET_VERSION = _compute_asset_version()
+
+
 def _ctx(request, page: str, **extra) -> dict:
     """Baut den Template-Kontext mit Übersetzungen."""
     lang = _get_lang()
     t = get_translations(lang)
-    return {"request": request, "page": page, "t": t, "lang": lang, **extra}
+    return {"request": request, "page": page, "t": t, "lang": lang, "asset_v": _ASSET_VERSION, **extra}
 
 
 # ─── HTML Pages ──────────────────────────────────────────────
