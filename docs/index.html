@@ -4,52 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Velora — AI-Powered Wealth Advisor</title>
-    <meta name="description" content="Self-hosted AI wealth advisor with web dashboard and Telegram bot. Portfolio tracking, market analysis, and investment briefings powered by Claude.">
+    <meta name="description" content="Self-hosted AI wealth advisor with web dashboard, chat, and Telegram bot. Portfolio tracking, market analysis, and interactive charts powered by Claude.">
+    <meta name="theme-color" content="#050814">
     <meta property="og:title" content="Velora — AI-Powered Wealth Advisor">
-    <meta property="og:description" content="Self-hosted portfolio tracker with AI briefings, dark-themed dashboard, and Telegram bot. Runs on Raspberry Pi.">
+    <meta property="og:description" content="Self-hosted portfolio tracker with AI briefings, glass-themed dashboard, web chat, and Telegram bot. Runs on a Raspberry Pi.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://kingler16.github.io/velora">
+    <meta property="og:url" content="https://kingler16.github.io/Velora">
     <link rel="icon" type="image/svg+xml" href="logo.svg?v=3">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=3">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=3">
     <link rel="shortcut icon" href="favicon-32.png?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0a0e1a;
-            --bg2: #0f172a;
-            --bg3: #1e293b;
-            --border: rgba(255,255,255,0.06);
-            --text: #f1f5f9;
+            --bg: #050814;
+            --bg2: rgba(255,255,255,0.04);
+            --bg3: rgba(255,255,255,0.07);
+            --border: rgba(255,255,255,0.08);
+            --border-strong: rgba(255,255,255,0.14);
+            --text: #f0f9ff;
             --text2: #94a3b8;
             --text3: #64748b;
-            --accent: #3b82f6;
-            --accent2: #60a5fa;
-            --green: #4ade80;
+            --accent: #22d3ee;
+            --accent2: #6366f1;
+            --accent3: #8b5cf6;
+            --amber: #fbbf24;
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255,255,255,0.10);
+            --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html { scroll-behavior: smooth; }
+
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
             background: var(--bg);
             color: var(--text);
             line-height: 1.6;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
+            min-height: 100vh;
         }
 
-        /* ─── Grain Overlay ─── */
+        /* Grainy blurred gradient blobs (matching Velora UI v2) */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: -20vh -20vw;
+            z-index: -2;
+            background:
+                radial-gradient(44vmin circle at 12% 18%, rgba(56, 120, 255, 0.44), transparent 62%),
+                radial-gradient(50vmin circle at 82% 28%, rgba(99, 102, 241, 0.40), transparent 65%),
+                radial-gradient(54vmin circle at 70% 85%, rgba(139, 92, 246, 0.38), transparent 60%),
+                radial-gradient(38vmin circle at 20% 78%, rgba(56, 189, 248, 0.28), transparent 58%);
+            filter: blur(70px) saturate(135%);
+            animation: blob-drift 48s ease-in-out infinite alternate;
+            pointer-events: none;
+            will-change: transform;
+        }
+
+        /* Noise overlay for the grainy feel */
         body::after {
             content: '';
             position: fixed;
             inset: 0;
-            z-index: 9999;
+            z-index: -1;
             pointer-events: none;
-            opacity: 0.035;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-            background-repeat: repeat;
-            background-size: 256px;
+            opacity: 0.04;
+            mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+            background-size: 220px 220px;
+        }
+
+        @keyframes blob-drift {
+            0%   { transform: translate3d(0, 0, 0) rotate(0deg); }
+            50%  { transform: translate3d(-3vw, 2vh, 0) rotate(4deg); }
+            100% { transform: translate3d(2vw, -2vh, 0) rotate(-3deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            body::before { animation: none; }
+        }
+
+        ::selection {
+            background: rgba(34, 211, 238, 0.25);
+            color: var(--text);
         }
 
         /* ─── Nav ─── */
@@ -58,10 +101,10 @@
             top: 0;
             width: 100%;
             z-index: 100;
-            padding: 16px 0;
-            background: rgba(10, 14, 26, 0.7);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
+            padding: 14px 0;
+            background: rgba(5, 8, 20, 0.55);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
             border-bottom: 1px solid var(--border);
         }
 
@@ -75,9 +118,10 @@
         }
 
         .nav-brand {
-            font-family: 'Space Mono', monospace;
-            font-size: 18px;
+            font-family: 'Inter', sans-serif;
+            font-size: 17px;
             font-weight: 700;
+            letter-spacing: -0.3px;
             color: var(--text);
             text-decoration: none;
             display: flex;
@@ -91,22 +135,23 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.25));
         }
 
         .nav-logo svg { width: 100%; height: 100%; }
 
         .nav-links {
             display: flex;
-            gap: 24px;
+            gap: 22px;
             align-items: center;
         }
 
         .nav-links a {
             color: var(--text2);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13.5px;
             font-weight: 500;
-            transition: color 0.2s;
+            transition: color 0.18s var(--ease-apple);
         }
 
         .nav-links a:hover { color: var(--text); }
@@ -114,52 +159,31 @@
         .btn-nav {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: rgba(255,255,255,0.05);
+            gap: 6px;
+            padding: 7px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border);
             border-radius: 8px;
             color: var(--text);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.18s var(--ease-apple);
         }
 
-        .btn-nav:hover { background: rgba(255,255,255,0.08); }
+        .btn-nav:hover {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: var(--border-strong);
+            transform: translateY(-1px);
+        }
 
         /* ─── Hero ─── */
         .hero {
-            padding: 160px 24px 100px;
+            padding: 160px 24px 80px;
             text-align: center;
             position: relative;
-            overflow: hidden;
-        }
-
-        /* Grainy gradient blobs */
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -120px;
-            left: 50%;
-            transform: translateX(-60%);
-            width: 700px;
-            height: 700px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.03) 40%, transparent 70%);
-            filter: blur(60px);
-            pointer-events: none;
-        }
-
-        .hero::after {
-            content: '';
-            position: absolute;
-            top: 60px;
-            right: -100px;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(74, 222, 128, 0.06) 0%, transparent 60%);
-            filter: blur(80px);
-            pointer-events: none;
         }
 
         .hero-content { position: relative; z-index: 1; }
@@ -169,25 +193,35 @@
             align-items: center;
             gap: 8px;
             padding: 6px 16px;
-            background: rgba(59, 130, 246, 0.08);
-            border: 1px solid rgba(59, 130, 246, 0.15);
+            background: rgba(34, 211, 238, 0.10);
+            border: 1px solid rgba(34, 211, 238, 0.22);
             border-radius: 100px;
-            font-size: 13px;
+            font-size: 12.5px;
             font-weight: 500;
-            color: var(--accent2);
+            color: var(--accent);
             margin-bottom: 28px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
         }
 
         .hero h1 {
-            font-size: clamp(38px, 6vw, 68px);
+            font-size: clamp(40px, 6.5vw, 76px);
             font-weight: 800;
-            letter-spacing: -2px;
-            line-height: 1.05;
+            letter-spacing: -2.5px;
+            line-height: 1.02;
             margin-bottom: 24px;
         }
 
         .hero h1 .gradient {
-            background: linear-gradient(135deg, var(--accent2), var(--green));
+            background: linear-gradient(135deg, #22d3ee 0%, #6366f1 55%, #8b5cf6 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -196,9 +230,9 @@
         .hero p {
             font-size: 17px;
             color: var(--text2);
-            max-width: 560px;
+            max-width: 580px;
             margin: 0 auto 40px;
-            line-height: 1.7;
+            line-height: 1.65;
         }
 
         .hero-buttons {
@@ -212,63 +246,95 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 28px;
-            background: var(--accent);
+            padding: 13px 28px;
+            background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 60%, #6366f1 100%);
+            border: 1px solid transparent;
             border-radius: 10px;
             color: white;
             text-decoration: none;
             font-size: 15px;
             font-weight: 600;
-            transition: all 0.2s;
+            box-shadow: 0 4px 16px rgba(6, 182, 212, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            transition: all 0.2s var(--ease-apple);
         }
 
-        .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+        .btn-primary:hover {
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            filter: brightness(1.08);
+            transform: translateY(-2px);
+        }
+
+        .btn-primary:active { transform: translateY(0) scale(0.98); }
 
         .btn-secondary {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 28px;
-            background: rgba(255,255,255,0.04);
+            padding: 13px 28px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border);
             border-radius: 10px;
             color: var(--text);
             text-decoration: none;
             font-size: 15px;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.2s var(--ease-apple);
         }
 
-        .btn-secondary:hover { background: rgba(255,255,255,0.07); }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--border-strong);
+            transform: translateY(-2px);
+        }
 
         .hero-stats {
             display: flex;
-            gap: 48px;
+            gap: 40px;
             justify-content: center;
             margin-top: 56px;
             padding-top: 40px;
             border-top: 1px solid var(--border);
-            max-width: 500px;
+            max-width: 600px;
             margin-left: auto;
             margin-right: auto;
         }
 
-        .stat-value { font-size: 28px; font-weight: 700; }
-        .stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value {
+            font-size: 30px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 11.5px;
+            color: var(--text3);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
 
         /* ─── Screenshot ─── */
         .screenshot-section {
-            padding: 0 24px 100px;
+            padding: 0 24px 80px;
             max-width: 1100px;
             margin: 0 auto;
         }
 
         .screenshot-wrapper {
-            border-radius: 16px;
-            border: 1px solid var(--border);
+            border-radius: 18px;
+            border: 1px solid var(--border-strong);
             overflow: hidden;
-            box-shadow: 0 32px 100px rgba(0, 0, 0, 0.5);
-            background: var(--bg2);
+            box-shadow: 0 32px 100px rgba(0, 0, 0, 0.55);
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
         }
 
         .screenshot-bar {
@@ -276,7 +342,7 @@
             align-items: center;
             gap: 8px;
             padding: 12px 16px;
-            background: rgba(255,255,255,0.03);
+            background: rgba(255, 255, 255, 0.04);
             border-bottom: 1px solid var(--border);
         }
 
@@ -286,39 +352,41 @@
             flex: 1;
             text-align: center;
             font-size: 12px;
+            font-family: 'Geist Mono', monospace;
             color: var(--text3);
         }
 
         .screenshot-placeholder {
-            padding: 60px 40px;
+            padding: 80px 40px;
             text-align: center;
             color: var(--text3);
             font-size: 15px;
         }
 
-        /* ─── Features ─── */
-        .features {
-            padding: 100px 24px;
-            max-width: 1100px;
-            margin: 0 auto;
+        .screenshot-placeholder-icon {
+            font-size: 44px;
+            margin-bottom: 16px;
+            opacity: 0.35;
         }
 
+        /* ─── Section Headers ─── */
         .section-label {
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            color: var(--accent2);
+            color: var(--accent);
             text-align: center;
             margin-bottom: 12px;
         }
 
         .section-title {
-            font-size: 32px;
+            font-size: clamp(28px, 4vw, 40px);
             font-weight: 700;
             text-align: center;
-            margin-bottom: 12px;
-            letter-spacing: -0.5px;
+            margin-bottom: 14px;
+            letter-spacing: -1px;
+            line-height: 1.1;
         }
 
         .section-sub {
@@ -326,39 +394,66 @@
             color: var(--text2);
             text-align: center;
             margin-bottom: 56px;
+            max-width: 560px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* ─── Features ─── */
+        .features {
+            padding: 100px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+            position: relative;
         }
 
         .features-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 1px;
-            background: var(--border);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
+            gap: 16px;
         }
 
         .feature-card {
-            background: var(--bg2);
-            padding: 32px;
-            transition: background 0.2s;
+            background: rgba(255, 255, 255, 0.035);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px;
+            box-shadow: var(--glass-shadow);
+            transition: all 0.25s var(--ease-apple);
         }
 
-        .feature-card:hover { background: rgba(15, 23, 42, 0.8); }
+        .feature-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--border-strong);
+            background: rgba(255, 255, 255, 0.06);
+        }
 
         .feature-icon {
-            font-size: 24px;
-            margin-bottom: 16px;
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(99, 102, 241, 0.18));
+            border: 1px solid rgba(34, 211, 238, 0.22);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            margin-bottom: 18px;
         }
 
+        .feature-icon svg { width: 22px; height: 22px; }
+
         .feature-card h3 {
-            font-size: 15px;
+            font-size: 15.5px;
             font-weight: 600;
             margin-bottom: 8px;
+            letter-spacing: -0.2px;
         }
 
         .feature-card p {
-            font-size: 13px;
+            font-size: 13.5px;
             color: var(--text2);
             line-height: 1.6;
         }
@@ -366,54 +461,71 @@
         /* ─── How It Works ─── */
         .how-it-works {
             padding: 100px 24px;
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
         }
 
         .steps {
             display: grid;
-            gap: 2px;
+            gap: 14px;
             margin-top: 56px;
-            background: var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid var(--border);
         }
 
         .step {
             display: flex;
             gap: 20px;
             align-items: flex-start;
-            padding: 28px 32px;
-            background: var(--bg2);
+            padding: 24px 28px;
+            background: rgba(255, 255, 255, 0.035);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: var(--glass-shadow);
         }
 
         .step-num {
-            width: 32px;
-            height: 32px;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: 8px;
+            width: 34px;
+            height: 34px;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(99, 102, 241, 0.18));
+            border: 1px solid rgba(34, 211, 238, 0.22);
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 14px;
             font-weight: 700;
-            color: var(--accent2);
+            color: var(--accent);
             flex-shrink: 0;
+            font-family: 'Geist Mono', monospace;
         }
 
-        .step-content h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-        .step-content p { font-size: 13px; color: var(--text2); }
+        .step-content { flex: 1; min-width: 0; }
+
+        .step-content h3 {
+            font-size: 15.5px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            letter-spacing: -0.2px;
+        }
+
+        .step-content p {
+            font-size: 13.5px;
+            color: var(--text2);
+            margin-bottom: 10px;
+        }
 
         .step-code {
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: rgba(0,0,0,0.3);
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.32);
             border: 1px solid var(--border);
-            border-radius: 6px;
-            font-family: 'Space Mono', 'SF Mono', monospace;
-            font-size: 12px;
-            color: var(--accent2);
+            border-radius: 8px;
+            font-family: 'Geist Mono', 'SF Mono', monospace;
+            font-size: 12.5px;
+            color: var(--accent);
+            overflow-x: auto;
+            white-space: nowrap;
         }
 
         /* ─── Tech Stack ─── */
@@ -432,13 +544,22 @@
         }
 
         .tech-tag {
-            padding: 6px 16px;
-            background: rgba(255,255,255,0.03);
+            padding: 7px 16px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--border);
             border-radius: 100px;
             font-size: 13px;
             font-weight: 500;
             color: var(--text2);
+            transition: all 0.2s var(--ease-apple);
+        }
+
+        .tech-tag:hover {
+            color: var(--text);
+            border-color: var(--border-strong);
+            transform: translateY(-1px);
         }
 
         /* ─── CTA ─── */
@@ -448,26 +569,16 @@
             position: relative;
         }
 
-        .cta::before {
-            content: '';
-            position: absolute;
-            bottom: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 600px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(59, 130, 246, 0.06) 0%, transparent 60%);
-            filter: blur(80px);
-            pointer-events: none;
-        }
-
         .cta-box {
-            max-width: 600px;
+            max-width: 640px;
             margin: 0 auto;
             padding: 56px 48px;
-            background: rgba(255,255,255,0.02);
-            border: 1px solid var(--border);
-            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid var(--border-strong);
+            border-radius: 22px;
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.10);
             position: relative;
             overflow: hidden;
         }
@@ -475,15 +586,28 @@
         .cta-box::before {
             content: '';
             position: absolute;
-            top: -1px;
+            top: 0;
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            background: linear-gradient(90deg, transparent, var(--accent), var(--accent3), transparent);
         }
 
-        .cta h2 { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
-        .cta p { font-size: 15px; color: var(--text2); margin-bottom: 28px; }
+        .cta h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            letter-spacing: -0.5px;
+        }
+
+        .cta p {
+            font-size: 15px;
+            color: var(--text2);
+            margin-bottom: 32px;
+            max-width: 440px;
+            margin-left: auto;
+            margin-right: auto;
+        }
 
         /* ─── Footer ─── */
         footer {
@@ -494,20 +618,27 @@
             border-top: 1px solid var(--border);
         }
 
-        footer a { color: var(--text2); text-decoration: none; }
+        footer a { color: var(--text2); text-decoration: none; transition: color 0.2s; }
         footer a:hover { color: var(--text); }
 
         /* ─── Responsive ─── */
+        @media (max-width: 900px) {
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
         @media (max-width: 768px) {
+            .hero { padding: 120px 20px 60px; }
             .features-grid { grid-template-columns: 1fr; }
-            .hero-stats { gap: 24px; }
-            .nav-links { display: none; }
+            .hero-stats { gap: 24px; flex-wrap: wrap; }
+            .nav-links a:not(.btn-nav) { display: none; }
+            .cta-box { padding: 40px 28px; }
         }
 
         @media (max-width: 480px) {
-            .hero h1 { font-size: 32px; }
-            .hero-buttons { flex-direction: column; align-items: center; }
-            .step { flex-direction: column; gap: 12px; }
+            .hero h1 { font-size: 36px; letter-spacing: -1.5px; }
+            .hero-buttons { flex-direction: column; align-items: stretch; }
+            .step { flex-direction: column; gap: 12px; padding: 20px; }
+            .step-code { font-size: 11px; white-space: normal; word-break: break-all; }
         }
     </style>
 </head>
@@ -517,16 +648,19 @@
 <nav>
     <div class="nav-inner">
         <a href="#" class="nav-brand">
-            <div class="nav-logo"><svg viewBox="0 0 2048 2048"><path fill="#ffffff" fill-rule="evenodd" transform="matrix(0.999999 0.0015439 -0.0015439 0.999999 3.16211 0)" d="M1041.98 416.742C1074.01 441.607 1107.58 466.052 1140.05 490.534L1321.44 627.633L1391.64 680.601C1418.19 700.639 1446.27 720.963 1468.31 746.188C1503.13 786.513 1525.37 836.157 1532.29 888.985C1538.15 931.972 1532.99 980.564 1529.87 1024.19L1518.85 1171.86L1483.48 1637.31C1453.32 1625.45 1411.48 1613.15 1379.97 1602.11C1297.68 1573.27 1213.63 1546.87 1131.44 1517.77C1050.05 1491.44 967.012 1461.9 885.821 1434.44L517.739 1309.7C545.59 1261.47 573.754 1213.42 602.228 1165.55L769.586 880.258L946.234 579.714C977.953 525.734 1009.61 470.181 1041.98 416.742Z M1100.19 1160.16C1105.33 1162.64 1326.18 1443.46 1351.86 1473.51C1333.96 1468.45 1302.53 1456.44 1283.8 1450.09C1224.23 1429.37 1164.54 1409.02 1104.72 1389.05C1071.14 1378.95 1028.86 1363.16 994.885 1351.55L770.822 1274.92C800.483 1265.13 832.285 1253.27 862.113 1242.91L1100.19 1160.16Z M1388.18 826.603C1415.69 858.213 1424.15 915.626 1420.4 955.939C1417.48 987.318 1414.85 1018.99 1412.61 1050.4L1392.4 1342.2C1386.02 1335.5 1375.54 1321.07 1369.15 1313.07L1319.27 1251.06L1192.04 1093.45C1260.17 1008.51 1321.45 911.945 1388.18 826.603Z M1032.22 662.594C1038.91 680.501 1035.35 715.14 1033.53 734.057C1029.57 774 1025.41 813.922 1021.04 853.821C1012.54 932.314 1002.63 984.888 1039.89 1060.69C1005.96 1073.97 965.211 1087.01 930.477 1099.15L752.679 1161.98C744.955 1164.67 737.199 1167.27 729.413 1169.78C740.227 1149.78 755.237 1126.07 767.073 1106.26L836.782 989.445L1032.22 662.594Z M1143.51 636.445C1156.88 644.596 1182.49 664.665 1195.65 674.624C1230.41 700.957 1264.89 727.667 1299.07 754.75C1287.35 768.991 1273.7 788.79 1262.91 803.95L1194.24 902.519C1175.1 929.588 1153.47 959.712 1133.39 985.91C1120.04 935.72 1128.13 918.168 1133.08 867.244L1141.96 773.391C1147.11 718.632 1151.63 691.222 1143.51 636.445Z"/></svg></div>
+            <div class="nav-logo"><svg viewBox="0 0 2048 2048"><path fill="#f0f9ff" fill-rule="evenodd" transform="matrix(0.999999 0.0015439 -0.0015439 0.999999 3.16211 0)" d="M1041.98 416.742C1074.01 441.607 1107.58 466.052 1140.05 490.534L1321.44 627.633L1391.64 680.601C1418.19 700.639 1446.27 720.963 1468.31 746.188C1503.13 786.513 1525.37 836.157 1532.29 888.985C1538.15 931.972 1532.99 980.564 1529.87 1024.19L1518.85 1171.86L1483.48 1637.31C1453.32 1625.45 1411.48 1613.15 1379.97 1602.11C1297.68 1573.27 1213.63 1546.87 1131.44 1517.77C1050.05 1491.44 967.012 1461.9 885.821 1434.44L517.739 1309.7C545.59 1261.47 573.754 1213.42 602.228 1165.55L769.586 880.258L946.234 579.714C977.953 525.734 1009.61 470.181 1041.98 416.742Z M1100.19 1160.16C1105.33 1162.64 1326.18 1443.46 1351.86 1473.51C1333.96 1468.45 1302.53 1456.44 1283.8 1450.09C1224.23 1429.37 1164.54 1409.02 1104.72 1389.05C1071.14 1378.95 1028.86 1363.16 994.885 1351.55L770.822 1274.92C800.483 1265.13 832.285 1253.27 862.113 1242.91L1100.19 1160.16Z M1388.18 826.603C1415.69 858.213 1424.15 915.626 1420.4 955.939C1417.48 987.318 1414.85 1018.99 1412.61 1050.4L1392.4 1342.2C1386.02 1335.5 1375.54 1321.07 1369.15 1313.07L1319.27 1251.06L1192.04 1093.45C1260.17 1008.51 1321.45 911.945 1388.18 826.603Z M1032.22 662.594C1038.91 680.501 1035.35 715.14 1033.53 734.057C1029.57 774 1025.41 813.922 1021.04 853.821C1012.54 932.314 1002.63 984.888 1039.89 1060.69C1005.96 1073.97 965.211 1087.01 930.477 1099.15L752.679 1161.98C744.955 1164.67 737.199 1167.27 729.413 1169.78C740.227 1149.78 755.237 1126.07 767.073 1106.26L836.782 989.445L1032.22 662.594Z M1143.51 636.445C1156.88 644.596 1182.49 664.665 1195.65 674.624C1230.41 700.957 1264.89 727.667 1299.07 754.75C1287.35 768.991 1273.7 788.79 1262.91 803.95L1194.24 902.519C1175.1 929.588 1153.47 959.712 1133.39 985.91C1120.04 935.72 1128.13 918.168 1133.08 867.244L1141.96 773.391C1147.11 718.632 1151.63 691.222 1143.51 636.445Z"/></svg></div>
             Velora
         </a>
         <div class="nav-links">
             <a href="#features">Features</a>
             <a href="#how-it-works">Setup</a>
             <a href="https://github.com/Kingler16/Velora/wiki">Docs</a>
-            <a href="https://buymeacoffee.com/kingler16" class="btn-nav" style="color: #facc15;">&#9749; Support</a>
+            <a href="https://buymeacoffee.com/kingler16" class="btn-nav" style="color: var(--amber); border-color: rgba(251, 191, 36, 0.25);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+                Support
+            </a>
             <a href="https://github.com/Kingler16/Velora" class="btn-nav">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                 GitHub
             </a>
         </div>
@@ -536,20 +670,24 @@
 <!-- Hero -->
 <section class="hero">
     <div class="hero-content">
-        <div class="hero-badge">Open Source &middot; Self-Hosted &middot; Zero API Costs</div>
+        <div class="hero-badge"><span class="dot"></span> Open Source · Self-Hosted · Zero API Costs</div>
         <h1>Your AI-Powered<br><span class="gradient">Wealth Advisor</span></h1>
-        <p>Portfolio monitoring, market analysis, and investment briefings — powered by Claude. Web dashboard + Telegram bot, runs on a Raspberry Pi.</p>
+        <p>Portfolio monitoring, market analysis, and an AI chat that speaks your portfolio. Web dashboard, Telegram bot, runs on a Raspberry Pi.</p>
         <div class="hero-buttons">
             <a href="https://github.com/Kingler16/Velora" class="btn-primary">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                 View on GitHub
             </a>
-            <a href="https://github.com/Kingler16/Velora/wiki/Getting-Started" class="btn-secondary">Get Started</a>
+            <a href="https://github.com/Kingler16/Velora/wiki/Getting-Started" class="btn-secondary">Get Started →</a>
         </div>
         <div class="hero-stats">
             <div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Dashboard Pages</div>
+            </div>
+            <div>
+                <div class="stat-value">16</div>
+                <div class="stat-label">AI Chat Tools</div>
             </div>
             <div>
                 <div class="stat-value">6</div>
@@ -568,14 +706,16 @@
     <div class="screenshot-wrapper">
         <div class="screenshot-bar">
             <div class="screenshot-dot" style="background:#ef4444;"></div>
-            <div class="screenshot-dot" style="background:#eab308;"></div>
-            <div class="screenshot-dot" style="background:#22c55e;"></div>
-            <div class="screenshot-url">localhost:8080</div>
+            <div class="screenshot-dot" style="background:#fbbf24;"></div>
+            <div class="screenshot-dot" style="background:#22d3ee;"></div>
+            <div class="screenshot-url">velora.local:8080</div>
         </div>
         <div class="screenshot-placeholder">
-            <p style="font-size: 48px; margin-bottom: 16px; opacity: 0.2;">&#128200;</p>
+            <div class="screenshot-placeholder-icon">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto; display: block;"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            </div>
             <p>Dashboard screenshot coming soon</p>
-            <p style="font-size: 13px; margin-top: 8px;">Dark-themed portfolio overview with KPI cards, allocation chart, and holdings table</p>
+            <p style="font-size: 13px; margin-top: 8px; color: var(--text3);">Liquid Glass UI, interactive ApexCharts, Command-Palette (Cmd+K), and an AI chat with 16 portfolio tools.</p>
         </div>
     </div>
 </section>
@@ -584,38 +724,71 @@
 <section class="features" id="features">
     <p class="section-label">Features</p>
     <h2 class="section-title">Everything You Need</h2>
-    <p class="section-sub">Portfolio tracking, AI analysis, and market data — in one self-hosted package.</p>
+    <p class="section-sub">Portfolio, markets, and an AI that actually knows your holdings — in one self-hosted package.</p>
 
     <div class="features-grid">
         <div class="feature-card">
-            <div class="feature-icon">&#128202;</div>
-            <h3>Web Dashboard</h3>
-            <p>7 pages with charts, tables, and KPIs. Portfolio allocation, benchmark comparison, tax-loss harvesting, Fear & Greed gauge.</p>
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            </div>
+            <h3>Liquid Glass Dashboard</h3>
+            <p>8 pages, ApexCharts + TradingView, auto dark/light, Cmd+K command palette, skeleton loaders. Feels like a native finance app.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#128172;</div>
-            <h3>Telegram Bot</h3>
-            <p>Receive briefings, log trades in natural language, analyze any ticker, and chat with your AI advisor.</p>
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            </div>
+            <h3>AI Chat (Web + Widget)</h3>
+            <p>Talk to Velora about your portfolio. 16 MCP tools for live data access, streaming responses, syntax-highlighted code, confirmation flow for trades.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#129504;</div>
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            </div>
             <h3>AI Briefings</h3>
-            <p>Bi-weekly portfolio analysis powered by Claude Opus. Market regime, position insights, actionable recommendations.</p>
+            <p>Scheduled portfolio analysis powered by Claude Opus. Market regime, position insights, and actionable buy/sell/watch recommendations.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#128176;</div>
-            <h3>Tax Optimization</h3>
-            <p>Automatic tax-loss harvesting analysis. Identifies positions to sell for tax savings in your tax regime.</p>
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <h3>Trade Logging</h3>
+            <p>Multi-step trade modal with live market-price hint, currency handling, and toast feedback. File-locked writes + auto-backups on every change.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#128203;</div>
-            <h3>Recommendation Tracking</h3>
-            <p>BUY/SELL/WATCH tracking, automatic outcome detection, hit-rate stats. Trades auto-close matching recommendations.</p>
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="13" width="3" height="5"/></svg>
+            </div>
+            <h3>Recommendations Engine</h3>
+            <p>BUY/SELL/WATCH tracking with automatic outcome detection, hit-rate stats, and auto-close when a matching trade is logged.</p>
         </div>
         <div class="feature-card">
-            <div class="feature-icon">&#127760;</div>
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
             <h3>6 Data Sources</h3>
-            <p>yfinance, FRED, ECB, Brave Search, Bloomberg RSS, Finnhub. Prices, fundamentals, macro, news, sentiment.</p>
+            <p>yfinance, FRED, ECB, Brave Search, Bloomberg RSS, Finnhub. Prices, fundamentals, macro, news, sentiment — all cached locally.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            </div>
+            <h3>Market Intel</h3>
+            <p>Fear &amp; Greed gauge, sector treemap, benchmark comparison, monthly-returns heatmap, earnings &amp; macro calendar.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M7 22h10M12 18v4"/></svg>
+            </div>
+            <h3>Telegram Bot</h3>
+            <p>Receive briefings on your phone, log trades in natural language, analyze any ticker, chat with your AI advisor from anywhere.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <h3>Privacy First</h3>
+            <p>Your portfolio stays on your device. No SaaS, no cloud sync, no telemetry. Deploy to a home server, own your data.</p>
         </div>
     </div>
 </section>
@@ -624,14 +797,14 @@
 <section class="how-it-works" id="how-it-works">
     <p class="section-label">Setup</p>
     <h2 class="section-title">Up and Running in 5 Minutes</h2>
-    <p class="section-sub">No Docker, no cloud, no complexity.</p>
+    <p class="section-sub">No Docker, no cloud, no complexity. Interactive wizard gets you started.</p>
 
     <div class="steps">
         <div class="step">
             <div class="step-num">1</div>
             <div class="step-content">
-                <h3>Clone & Setup</h3>
-                <p>The interactive wizard handles everything — language, tax regime, Telegram bot, API keys, portfolio import.</p>
+                <h3>Clone &amp; Setup</h3>
+                <p>Interactive wizard handles language, tax regime, Telegram bot, API keys, and portfolio import.</p>
                 <div class="step-code">git clone https://github.com/Kingler16/Velora.git && cd Velora && python3 setup.py</div>
             </div>
         </div>
@@ -639,7 +812,7 @@
             <div class="step-num">2</div>
             <div class="step-content">
                 <h3>Run Your First Briefing</h3>
-                <p>Collects market data, runs AI analysis, sends the result to your Telegram.</p>
+                <p>Collects market data, runs AI analysis, delivers the result to your Telegram.</p>
                 <div class="step-code">python -m src.main briefing</div>
             </div>
         </div>
@@ -647,7 +820,7 @@
             <div class="step-num">3</div>
             <div class="step-content">
                 <h3>Start the Dashboard</h3>
-                <p>Open the web dashboard and explore your portfolio visually.</p>
+                <p>Open the web dashboard, hit <code style="background:rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-family: 'Geist Mono', monospace; font-size: 12px;">Cmd+K</code> to navigate, chat with your portfolio.</p>
                 <div class="step-code">python -m src.main web</div>
             </div>
         </div>
@@ -655,7 +828,7 @@
             <div class="step-num">4</div>
             <div class="step-content">
                 <h3>Deploy (Optional)</h3>
-                <p>Put it on a Raspberry Pi for always-on briefings and dashboard access from any device.</p>
+                <p>Run it on a Raspberry Pi for always-on briefings and dashboard access from any device on your network.</p>
                 <div class="step-code">./scripts/deploy.sh admin@your-pi-ip</div>
             </div>
         </div>
@@ -666,16 +839,22 @@
 <section class="tech-stack">
     <p class="section-label">Tech Stack</p>
     <h2 class="section-title">Built With</h2>
+    <p class="section-sub">Lean, proven, no framework bloat.</p>
     <div class="tech-grid">
-        <span class="tech-tag">Python</span>
+        <span class="tech-tag">Python 3.12</span>
         <span class="tech-tag">Claude Code CLI</span>
         <span class="tech-tag">FastAPI</span>
         <span class="tech-tag">Jinja2</span>
         <span class="tech-tag">HTMX</span>
-        <span class="tech-tag">Chart.js</span>
-        <span class="tech-tag">TradingView Charts</span>
+        <span class="tech-tag">Vanilla CSS</span>
+        <span class="tech-tag">Inter + Geist Mono</span>
+        <span class="tech-tag">ApexCharts</span>
+        <span class="tech-tag">TradingView Lightweight</span>
+        <span class="tech-tag">highlight.js</span>
+        <span class="tech-tag">MCP Server</span>
         <span class="tech-tag">yfinance</span>
         <span class="tech-tag">FRED API</span>
+        <span class="tech-tag">ECB</span>
         <span class="tech-tag">Brave Search</span>
         <span class="tech-tag">Finnhub</span>
         <span class="tech-tag">Telegram Bot API</span>
@@ -692,14 +871,17 @@
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                 Get Started on GitHub
             </a>
-            <a href="https://buymeacoffee.com/kingler16" class="btn-secondary" style="color: #facc15;">&#9749; Buy Me a Coffee</a>
+            <a href="https://buymeacoffee.com/kingler16" class="btn-secondary" style="color: var(--amber); border-color: rgba(251, 191, 36, 0.25);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+                Buy Me a Coffee
+            </a>
         </div>
     </div>
 </section>
 
 <!-- Footer -->
 <footer>
-    <p>Velora &middot; MIT License &middot; <a href="https://github.com/Kingler16/Velora">GitHub</a> &middot; <a href="https://github.com/Kingler16/Velora/wiki">Docs</a> &middot; <a href="https://buymeacoffee.com/kingler16" style="color: #facc15;">&#9749; Support</a></p>
+    <p>Velora · MIT License · <a href="https://github.com/Kingler16/Velora">GitHub</a> · <a href="https://github.com/Kingler16/Velora/wiki">Docs</a> · <a href="https://buymeacoffee.com/kingler16" style="color: var(--amber);">Support</a></p>
 </footer>
 
 </body>
