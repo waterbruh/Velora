@@ -655,13 +655,16 @@ async def api_refresh_status():
 
 
 async def _run_refresh():
-    """Background-Task: Sammelt alle Daten neu und schreibt Cache."""
+    """Background-Task: Sammelt alle Daten neu und schreibt Cache (parallel)."""
     global _refresh_running
+    import time
+    start = time.monotonic()
     try:
-        logger.info("Background-Refresh gestartet...")
-        from src.data.market import collect_all_market_data, load_portfolio as load_port
+        logger.info("Background-Refresh gestartet (parallel)...")
+        from src.data.market import collect_all_market_data, get_all_tickers, load_portfolio as load_port
         from src.data.macro import collect_all_macro_data
         from src.data.calendar import fetch_earnings_calendar, get_market_status, get_upcoming_macro_events
+        from src.data.news import collect_all_news
         import json
 
         settings_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
@@ -669,39 +672,52 @@ async def _run_refresh():
             settings = json.load(f)
 
         portfolio = load_port()
-        market_data = collect_all_market_data(portfolio)
-        save_cache("market_data", market_data)
-
+        # Ticker-Liste direkt aus dem Portfolio ableiten, damit Calendar/News
+        # nicht auf Market-Daten warten müssen.
+        portfolio_tickers = get_all_tickers(portfolio)
         fred_key = settings.get("fred", {}).get("api_key", "")
-        macro_data = collect_all_macro_data(fred_key)
-        save_cache("macro_data", macro_data)
+        brave_key = settings.get("brave_search", {}).get("api_key", "")
+        finnhub_key = settings.get("finnhub", {}).get("api_key", "")
 
-        tickers = [
-            {"ticker": t, "name": market_data["positions"][t].get("price", {}).get("name", t)}
-            for t in market_data.get("positions", {})
-        ]
-        earnings = fetch_earnings_calendar(tickers)
-        market_status = get_market_status()
-        macro_events = get_upcoming_macro_events(days_ahead=30)
-        save_cache("calendar_data", {
-            "earnings": earnings,
-            "market_status": market_status,
-            "macro_events": macro_events,
-        })
+        async def run_market():
+            data = await asyncio.to_thread(collect_all_market_data, portfolio)
+            save_cache("market_data", data)
+            return data
 
-        # News-Collection
-        try:
-            from src.data.news import collect_all_news
-            brave_key = settings.get("brave_search", {}).get("api_key", "")
-            finnhub_key = settings.get("finnhub", {}).get("api_key", "")
-            if brave_key or finnhub_key:
-                news = collect_all_news(tickers, brave_key, finnhub_key)
-                save_cache("news_data", news)
+        async def run_macro():
+            data = await asyncio.to_thread(collect_all_macro_data, fred_key)
+            save_cache("macro_data", data)
+            return data
+
+        async def run_calendar():
+            earnings = await asyncio.to_thread(fetch_earnings_calendar, portfolio_tickers)
+            market_status = get_market_status()
+            macro_events = get_upcoming_macro_events(days_ahead=30)
+            save_cache("calendar_data", {
+                "earnings": earnings,
+                "market_status": market_status,
+                "macro_events": macro_events,
+            })
+
+        async def run_news():
+            if not (brave_key or finnhub_key):
+                return
+            try:
+                data = await asyncio.to_thread(collect_all_news, portfolio_tickers, brave_key, finnhub_key)
+                save_cache("news_data", data)
                 logger.info("News-Daten gesammelt und gecacht")
-        except Exception as e:
-            logger.error(f"News-Collection Fehler: {e}")
+            except Exception as e:
+                logger.error(f"News-Collection Fehler: {e}")
 
-        logger.info("Background-Refresh abgeschlossen")
+        results = await asyncio.gather(
+            run_market(), run_macro(), run_calendar(), run_news(),
+            return_exceptions=True,
+        )
+        for r in results:
+            if isinstance(r, Exception):
+                logger.error(f"Refresh-Teil-Task Fehler: {r}")
+
+        logger.info(f"Background-Refresh abgeschlossen in {time.monotonic() - start:.1f}s")
     except Exception as e:
         logger.error(f"Background-Refresh Fehler: {e}")
     finally:

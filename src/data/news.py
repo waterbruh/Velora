@@ -4,6 +4,7 @@ Kombiniert mehrere Quellen für bessere Abdeckung.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import feedparser
@@ -56,23 +57,30 @@ BLOOMBERG_FEEDS = [
 ]
 
 
+def _parse_bloomberg_feed(feed_url: str, max_per_feed: int) -> list[dict]:
+    items = []
+    try:
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:max_per_feed]:
+            items.append({
+                "title": entry.get("title", ""),
+                "description": entry.get("summary", entry.get("description", ""))[:200],
+                "url": entry.get("link", ""),
+                "published": entry.get("published", ""),
+                "source": "bloomberg",
+            })
+    except Exception as e:
+        logger.debug(f"Bloomberg RSS Fehler: {e}")
+    return items
+
+
 def fetch_bloomberg_headlines(max_per_feed: int = 5) -> list[dict]:
-    """Holt aktuelle Bloomberg-Headlines via RSS (kostenlos, kein API Key)."""
+    """Holt aktuelle Bloomberg-Headlines via RSS (parallel pro Feed)."""
     results = []
-    for feed_url in BLOOMBERG_FEEDS:
-        try:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:max_per_feed]:
-                published = entry.get("published", "")
-                results.append({
-                    "title": entry.get("title", ""),
-                    "description": entry.get("summary", entry.get("description", ""))[:200],
-                    "url": entry.get("link", ""),
-                    "published": published,
-                    "source": "bloomberg",
-                })
-        except Exception as e:
-            logger.debug(f"Bloomberg RSS Fehler: {e}")
+    with ThreadPoolExecutor(max_workers=len(BLOOMBERG_FEEDS)) as ex:
+        futures = [ex.submit(_parse_bloomberg_feed, url, max_per_feed) for url in BLOOMBERG_FEEDS]
+        for fut in as_completed(futures):
+            results.extend(fut.result())
     return results
 
 
@@ -142,30 +150,33 @@ def search_position_news(name: str, ticker: str, api_key: str) -> list[dict]:
     return search_brave(query, api_key, count=3, freshness="pw")
 
 
+def _run_brave_queries(queries: list[str], api_key: str, count: int, freshness: str, max_workers: int = 3) -> list[dict]:
+    results = []
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(queries))) as ex:
+        futures = [ex.submit(search_brave, q, api_key, count, freshness) for q in queries]
+        for fut in as_completed(futures):
+            results.extend(fut.result())
+    return results
+
+
 def search_macro_news(api_key: str) -> list[dict]:
-    """Sucht allgemeine Makro-/Marktnews."""
+    """Sucht allgemeine Makro-/Marktnews (parallel)."""
     queries = [
         "stock market outlook this week analysis",
         "federal reserve ECB interest rate latest",
         "geopolitical risks markets 2026",
     ]
-    results = []
-    for q in queries:
-        results.extend(search_brave(q, api_key, count=3, freshness="pw"))
-    return results
+    return _run_brave_queries(queries, api_key, count=3, freshness="pw")
 
 
 def search_new_opportunities(api_key: str) -> list[dict]:
-    """Sucht nach neuen Investment-Opportunitäten."""
+    """Sucht nach neuen Investment-Opportunitäten (parallel)."""
     queries = [
         "undervalued stocks to buy analysts recommendation",
         "best growth stocks overlooked 2026",
         "value investing opportunities small cap",
     ]
-    results = []
-    for q in queries:
-        results.extend(search_brave(q, api_key, count=3, freshness="pm"))
-    return results
+    return _run_brave_queries(queries, api_key, count=3, freshness="pm")
 
 
 def get_merged_headlines(news_data: dict, limit: int = 20) -> list[dict]:
@@ -183,45 +194,84 @@ def get_merged_headlines(news_data: dict, limit: int = 20) -> list[dict]:
 
 # ── Collector ────────────────────────────────────────────────────
 
-def collect_all_news(portfolio_tickers: list[dict], brave_api_key: str, finnhub_api_key: str = "") -> dict:
-    """Sammelt News aus allen Quellen: Brave + Bloomberg RSS + Finnhub."""
+def _is_us_ticker(ticker: str) -> bool:
+    return not any(c in ticker for c in [".", "AT0"])
 
-    # 1. Bloomberg Headlines (immer, kein API Key nötig)
-    logger.info("Bloomberg RSS...")
-    bloomberg = fetch_bloomberg_headlines(max_per_feed=5)
 
-    # 2. Position-News: Brave Search + Finnhub
-    position_news = {}
-    for t in portfolio_tickers:
-        ticker = t["ticker"]
-        name = t["name"]
-        logger.info(f"News: {name}...")
+def _collect_position_news(portfolio_tickers: list[dict], brave_api_key: str, finnhub_api_key: str) -> dict:
+    """Holt Brave + Finnhub News pro Ticker — je eigener Pool um Rate-Limits zu respektieren."""
+    brave_results: dict[str, list[dict]] = {}
+    finnhub_results: dict[str, list[dict]] = {}
 
-        news = []
-        # Brave Search
-        if brave_api_key:
-            news.extend(search_position_news(name, ticker, brave_api_key))
-        # Finnhub (nur für US-Ticker, braucht reinen Ticker ohne Suffix)
-        if finnhub_api_key and not any(c in ticker for c in [".", "AT0"]):
-            finnhub_news = fetch_finnhub_news(ticker, finnhub_api_key)
-            news.extend(finnhub_news)
+    # Brave: max 3 parallel (Free Tier ~1 req/s)
+    if brave_api_key:
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            futures = {
+                ex.submit(search_position_news, t["name"], t["ticker"], brave_api_key): t["ticker"]
+                for t in portfolio_tickers
+            }
+            for fut in as_completed(futures):
+                ticker = futures[fut]
+                news = fut.result()
+                if news:
+                    brave_results[ticker] = news
 
-        if news:
-            position_news[ticker] = news
-
-    # 3. Sentiment (Finnhub, nur für Top-Positionen)
-    sentiment = {}
+    # Finnhub: mehr parallel erlaubt, nur für US-Ticker
     if finnhub_api_key:
-        for t in portfolio_tickers[:8]:
-            ticker = t["ticker"]
-            if not any(c in ticker for c in [".", "AT0"]):
-                s = fetch_finnhub_sentiment(ticker, finnhub_api_key)
-                if s:
-                    sentiment[ticker] = s
+        us_tickers = [t for t in portfolio_tickers if _is_us_ticker(t["ticker"])]
+        if us_tickers:
+            with ThreadPoolExecutor(max_workers=min(8, len(us_tickers))) as ex:
+                futures = {
+                    ex.submit(fetch_finnhub_news, t["ticker"], finnhub_api_key): t["ticker"]
+                    for t in us_tickers
+                }
+                for fut in as_completed(futures):
+                    ticker = futures[fut]
+                    news = fut.result()
+                    if news:
+                        finnhub_results[ticker] = news
 
-    # 4. Makro-News + Opportunities (Brave)
-    macro_news = search_macro_news(brave_api_key) if brave_api_key else []
-    opportunities = search_new_opportunities(brave_api_key) if brave_api_key else []
+    # Merge
+    merged: dict[str, list[dict]] = {}
+    for ticker in set(list(brave_results.keys()) + list(finnhub_results.keys())):
+        merged[ticker] = brave_results.get(ticker, []) + finnhub_results.get(ticker, [])
+    return merged
+
+
+def _collect_sentiment(portfolio_tickers: list[dict], finnhub_api_key: str) -> dict:
+    if not finnhub_api_key:
+        return {}
+    candidates = [t["ticker"] for t in portfolio_tickers[:8] if _is_us_ticker(t["ticker"])]
+    if not candidates:
+        return {}
+    results: dict[str, dict] = {}
+    with ThreadPoolExecutor(max_workers=min(8, len(candidates))) as ex:
+        futures = {ex.submit(fetch_finnhub_sentiment, tk, finnhub_api_key): tk for tk in candidates}
+        for fut in as_completed(futures):
+            tk = futures[fut]
+            s = fut.result()
+            if s:
+                results[tk] = s
+    return results
+
+
+def collect_all_news(portfolio_tickers: list[dict], brave_api_key: str, finnhub_api_key: str = "") -> dict:
+    """Sammelt News aus allen Quellen: Brave + Bloomberg RSS + Finnhub (parallel)."""
+    logger.info("News-Collection (parallel)...")
+
+    # Die 4 Top-Level-Blöcke sind unabhängig voneinander → parallel starten.
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        bloomberg_fut = ex.submit(fetch_bloomberg_headlines, 5)
+        position_fut = ex.submit(_collect_position_news, portfolio_tickers, brave_api_key, finnhub_api_key)
+        sentiment_fut = ex.submit(_collect_sentiment, portfolio_tickers, finnhub_api_key)
+        macro_fut = ex.submit(search_macro_news, brave_api_key) if brave_api_key else None
+        opps_fut = ex.submit(search_new_opportunities, brave_api_key) if brave_api_key else None
+
+        bloomberg = bloomberg_fut.result()
+        position_news = position_fut.result()
+        sentiment = sentiment_fut.result()
+        macro_news = macro_fut.result() if macro_fut else []
+        opportunities = opps_fut.result() if opps_fut else []
 
     return {
         "position_news": position_news,

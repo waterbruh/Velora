@@ -3,6 +3,7 @@ Finanzkalender: Börsen-Status, Earnings, Makro-Events.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, date
 
 import requests
@@ -139,44 +140,53 @@ def get_upcoming_macro_events(days_ahead: int = 30) -> list[dict]:
 
 # ── Earnings-Kalender ────────────────────────────────────────────
 
-def fetch_earnings_calendar(tickers: list[dict]) -> list[dict]:
-    """Holt kommende Earnings-Termine via yfinance."""
-    events = []
-    for t in tickers:
-        ticker = t.get("ticker")
-        if not ticker:
-            continue
-        try:
-            stock = yf.Ticker(ticker)
-            cal = stock.calendar
-            if cal is not None and not (hasattr(cal, 'empty') and cal.empty):
-                if isinstance(cal, dict):
-                    earnings_date = cal.get("Earnings Date")
-                    if earnings_date:
-                        date_str = str(earnings_date[0]) if isinstance(earnings_date, list) else str(earnings_date)
-                        events.append({
-                            "ticker": ticker,
-                            "name": t["name"],
-                            "event": "Earnings",
-                            "date": date_str[:10],
-                        })
-                elif hasattr(cal, 'to_dict'):
-                    cal_dict = cal.to_dict()
-                    for key in cal_dict:
-                        if "earning" in str(key).lower():
-                            val = cal_dict[key]
-                            if isinstance(val, dict):
-                                val = list(val.values())[0] if val else None
-                            if val:
-                                events.append({
-                                    "ticker": ticker,
-                                    "name": t["name"],
-                                    "event": str(key),
-                                    "date": str(val)[:10],
-                                })
-        except Exception as e:
-            logger.debug(f"Earnings für {ticker}: {e}")
+def _fetch_earnings_single(t: dict) -> list[dict]:
+    ticker = t.get("ticker")
+    if not ticker:
+        return []
+    out = []
+    try:
+        stock = yf.Ticker(ticker)
+        cal = stock.calendar
+        if cal is not None and not (hasattr(cal, 'empty') and cal.empty):
+            if isinstance(cal, dict):
+                earnings_date = cal.get("Earnings Date")
+                if earnings_date:
+                    date_str = str(earnings_date[0]) if isinstance(earnings_date, list) else str(earnings_date)
+                    out.append({
+                        "ticker": ticker,
+                        "name": t["name"],
+                        "event": "Earnings",
+                        "date": date_str[:10],
+                    })
+            elif hasattr(cal, 'to_dict'):
+                cal_dict = cal.to_dict()
+                for key in cal_dict:
+                    if "earning" in str(key).lower():
+                        val = cal_dict[key]
+                        if isinstance(val, dict):
+                            val = list(val.values())[0] if val else None
+                        if val:
+                            out.append({
+                                "ticker": ticker,
+                                "name": t["name"],
+                                "event": str(key),
+                                "date": str(val)[:10],
+                            })
+    except Exception as e:
+        logger.debug(f"Earnings für {ticker}: {e}")
+    return out
 
+
+def fetch_earnings_calendar(tickers: list[dict]) -> list[dict]:
+    """Holt kommende Earnings-Termine via yfinance (parallel)."""
+    if not tickers:
+        return []
+    events = []
+    with ThreadPoolExecutor(max_workers=min(10, len(tickers))) as ex:
+        futures = [ex.submit(_fetch_earnings_single, t) for t in tickers]
+        for fut in as_completed(futures):
+            events.extend(fut.result())
     events.sort(key=lambda x: x.get("date", "9999"))
     return events
 

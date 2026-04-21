@@ -4,6 +4,7 @@ Zinsen, Inflation, Arbeitslosigkeit, Yield Curves.
 """
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
 import requests
@@ -11,8 +12,37 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+def _fetch_fred_series(name: str, series_id: str, api_key: str, start: str, today: str) -> tuple[str, dict | None]:
+    base_url = "https://api.stlouisfed.org/fred/series/observations"
+    try:
+        params = {
+            "series_id": series_id,
+            "api_key": api_key,
+            "file_type": "json",
+            "observation_start": start,
+            "observation_end": today,
+            "sort_order": "desc",
+            "limit": 5,
+        }
+        resp = requests.get(base_url, params=params, timeout=10)
+        data = resp.json()
+        observations = data.get("observations", [])
+        if observations:
+            latest = observations[0]
+            value = latest.get("value", ".")
+            if value != ".":
+                return name, {
+                    "value": float(value),
+                    "date": latest["date"],
+                    "source": f"FRED:{series_id}",
+                }
+    except Exception as e:
+        logger.error(f"FRED {name} ({series_id}) Fehler: {e}")
+    return name, None
+
+
 def fetch_fred_data(api_key: str) -> dict:
-    """Holt wichtige US-Makrodaten von FRED."""
+    """Holt wichtige US-Makrodaten von FRED (parallel)."""
     series = {
         "fed_funds_rate": "FEDFUNDS",
         "us_cpi_yoy": "CPIAUCSL",
@@ -25,35 +55,18 @@ def fetch_fred_data(api_key: str) -> dict:
     }
 
     results = {}
-    base_url = "https://api.stlouisfed.org/fred/series/observations"
     today = datetime.now().strftime("%Y-%m-%d")
     start = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
 
-    for name, series_id in series.items():
-        try:
-            params = {
-                "series_id": series_id,
-                "api_key": api_key,
-                "file_type": "json",
-                "observation_start": start,
-                "observation_end": today,
-                "sort_order": "desc",
-                "limit": 5,
-            }
-            resp = requests.get(base_url, params=params, timeout=10)
-            data = resp.json()
-            observations = data.get("observations", [])
-            if observations:
-                latest = observations[0]
-                value = latest.get("value", ".")
-                if value != ".":
-                    results[name] = {
-                        "value": float(value),
-                        "date": latest["date"],
-                        "source": f"FRED:{series_id}",
-                    }
-        except Exception as e:
-            logger.error(f"FRED {name} ({series_id}) Fehler: {e}")
+    with ThreadPoolExecutor(max_workers=min(8, len(series))) as ex:
+        futures = [
+            ex.submit(_fetch_fred_series, name, sid, api_key, start, today)
+            for name, sid in series.items()
+        ]
+        for fut in as_completed(futures):
+            name, data = fut.result()
+            if data:
+                results[name] = data
 
     # Yield Curve Spread berechnen
     if "us_10y_yield" in results and "us_2y_yield" in results:
@@ -68,10 +81,33 @@ def fetch_fred_data(api_key: str) -> dict:
     return results
 
 
-def fetch_ecb_data() -> dict:
-    """Holt EZB-Daten direkt von der ECB Data API."""
-    results = {}
+def _fetch_ecb_endpoint(name: str, url: str, desc: str) -> tuple[str, dict | None]:
+    headers = {"Accept": "application/vnd.sdmx.data+json;version=1.0.0-wd"}
+    try:
+        resp = requests.get(url, headers=headers, params={"lastNObservations": "1"}, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            datasets = data.get("dataSets", [{}])
+            if datasets:
+                series = datasets[0].get("series", {})
+                for _, s in series.items():
+                    obs = s.get("observations", {})
+                    if obs:
+                        last_key = max(obs.keys())
+                        value = obs[last_key][0]
+                        return name, {
+                            "value": float(value),
+                            "description": desc,
+                            "source": "ECB Data API",
+                            "timestamp": datetime.now().isoformat(),
+                        }
+    except Exception as e:
+        logger.error(f"ECB {name} Fehler: {e}")
+    return name, None
 
+
+def fetch_ecb_data() -> dict:
+    """Holt EZB-Daten direkt von der ECB Data API (parallel)."""
     endpoints = {
         "ecb_main_rate": {
             "url": "https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.4F.KR.MRR_FR.LEV",
@@ -87,31 +123,13 @@ def fetch_ecb_data() -> dict:
         },
     }
 
-    headers = {"Accept": "application/vnd.sdmx.data+json;version=1.0.0-wd"}
-
-    for name, ep in endpoints.items():
-        try:
-            params = {"lastNObservations": "1"}
-            resp = requests.get(ep["url"], headers=headers, params=params, timeout=10)
-            if resp.status_code == 200:
-                data = resp.json()
-                datasets = data.get("dataSets", [{}])
-                if datasets:
-                    series = datasets[0].get("series", {})
-                    for key, s in series.items():
-                        obs = s.get("observations", {})
-                        if obs:
-                            last_key = max(obs.keys())
-                            value = obs[last_key][0]
-                            results[name] = {
-                                "value": float(value),
-                                "description": ep["desc"],
-                                "source": "ECB Data API",
-                                "timestamp": datetime.now().isoformat(),
-                            }
-        except Exception as e:
-            logger.error(f"ECB {name} Fehler: {e}")
-
+    results = {}
+    with ThreadPoolExecutor(max_workers=len(endpoints)) as ex:
+        futures = [ex.submit(_fetch_ecb_endpoint, name, ep["url"], ep["desc"]) for name, ep in endpoints.items()]
+        for fut in as_completed(futures):
+            name, data = fut.result()
+            if data:
+                results[name] = data
     return results
 
 
@@ -139,10 +157,15 @@ def fetch_fear_greed() -> dict | None:
 
 
 def collect_all_macro_data(fred_api_key: str) -> dict:
-    """Sammelt alle Makrodaten."""
-    fred = fetch_fred_data(fred_api_key) if fred_api_key else {}
-    ecb = fetch_ecb_data()
-    fear_greed = fetch_fear_greed()
+    """Sammelt alle Makrodaten (FRED + ECB + Fear&Greed parallel)."""
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        fred_future = ex.submit(fetch_fred_data, fred_api_key) if fred_api_key else None
+        ecb_future = ex.submit(fetch_ecb_data)
+        fg_future = ex.submit(fetch_fear_greed)
+
+        fred = fred_future.result() if fred_future else {}
+        ecb = ecb_future.result()
+        fear_greed = fg_future.result()
 
     return {
         "us": fred,
