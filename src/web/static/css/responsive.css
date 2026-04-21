@@ -63,3 +63,40 @@
 }
 
 /* Desktop bleibt wie vorher.  Bottom-Nav wird ab 768px via bottom-nav.css versteckt. */
+
+/* ─── View Transitions (Safari 18+, Chrome 111+) ────────────────── */
+@view-transition { navigation: auto; }
+
+::view-transition-old(root) {
+    animation-duration: 180ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-name: velora-fade-out-slight;
+}
+::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-name: velora-fade-in-slight;
+}
+@keyframes velora-fade-out-slight {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(-6px); }
+}
+@keyframes velora-fade-in-slight {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(root), ::view-transition-new(root) {
+        animation: none !important;
+    }
+}
+
+/* ─── Keyboard-Inset fuer iOS-Safari-Standalone ──────────────────── */
+@supports (padding-bottom: env(keyboard-inset-height, 0px)) {
+    .chat-input-wrap {
+        padding-bottom: max(
+            var(--safe-bottom, 0px),
+            env(keyboard-inset-height, 0px)
+        );
+    }
+}

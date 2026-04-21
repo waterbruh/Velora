@@ -84,15 +84,18 @@
       .then(r => r.json().then(d => ({ ok: r.ok, d })))
       .then(({ ok, d }) => {
         if (ok) {
+          window.VeloraHaptics?.success();
           close();
           window.toast?.success('Trade gespeichert', { detail: `${state.shares} × ${state.ticker} @ ${state.price} ${state.currency}` });
           setTimeout(() => location.reload(), 600);
         } else {
+          window.VeloraHaptics?.error();
           btn.classList.remove('loading'); btn.disabled = false;
           window.toast?.error('Fehler', { detail: d.error || 'Trade konnte nicht gespeichert werden' });
         }
       })
       .catch(() => {
+        window.VeloraHaptics?.error();
         btn.classList.remove('loading'); btn.disabled = false;
         window.toast?.error('Verbindungsfehler', { detail: 'Pruefe deine Netzwerkverbindung' });
       });
