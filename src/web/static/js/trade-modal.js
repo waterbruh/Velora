@@ -118,9 +118,32 @@
     if (e.key === 'Escape' && modalEl()?.classList.contains('open')) close();
   });
 
-  if (new URLSearchParams(location.search).get('trade') === '1') {
-    document.addEventListener('DOMContentLoaded', open);
+  function openFromShare(shareId) {
+    const preview = document.getElementById('tradeSharePreview');
+    const img = document.getElementById('tradeShareImg');
+    if (preview && img) {
+      img.src = `/api/share/${encodeURIComponent(shareId)}/image`;
+      preview.hidden = false;
+    }
+    // Meta laden für optionales Prefilling via text-Feld
+    fetch(`/api/share/${encodeURIComponent(shareId)}/meta`).then((r) => r.ok ? r.json() : null).then((meta) => {
+      if (!meta) return;
+      // Einfache Heuristik: wenn text wie "BUY AAPL" aussieht, Action vorauswählen
+      const t = (meta.text || meta.title || '').toLowerCase();
+      if (t.includes('verkauf') || t.includes('sell') || t.includes('sold')) {
+        document.querySelectorAll('.trade-action-btn').forEach((b) => b.classList.toggle('active', b.dataset.action === 'sell'));
+      }
+    }).catch(() => null);
+    open();
   }
 
-  window.TradeModal = { open, close, next, back, submit };
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('trade') === '1') {
+    document.addEventListener('DOMContentLoaded', open);
+  } else if (qs.get('share')) {
+    const id = qs.get('share');
+    document.addEventListener('DOMContentLoaded', () => openFromShare(id));
+  }
+
+  window.TradeModal = { open, close, next, back, submit, openFromShare };
 })();

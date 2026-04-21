@@ -107,6 +107,10 @@ app.include_router(pwa_router)
 from src.web.routes.push import router as push_router
 app.include_router(push_router)
 
+# Share-Target-Router (Screenshot via iOS-Share-Sheet)
+from src.web.routes.share import router as share_router
+app.include_router(share_router)
+
 
 from src.config_loader import load_settings as _load_settings_impl
 

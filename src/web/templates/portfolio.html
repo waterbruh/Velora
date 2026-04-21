@@ -29,6 +29,15 @@
             <span class="trade-dot"></span>
         </div>
 
+        <div id="tradeSharePreview" hidden style="margin-bottom: 16px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 10px; display: flex; gap: 10px; align-items: flex-start;">
+            <img id="tradeShareImg" src="" alt="Geteilter Screenshot" style="width: 72px; height: 72px; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: var(--color-night-1);">
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px;">Aus Screenshot</div>
+                <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">Werte aus dem Screenshot ablesen und eintippen.</div>
+            </div>
+            <button type="button" onclick="document.getElementById('tradeSharePreview').hidden=true" aria-label="Vorschau ausblenden" style="background:transparent; border:0; color:var(--text-muted); cursor:pointer; padding:4px; font-size:16px; line-height:1;">×</button>
+        </div>
+
         <div id="tradeStep1" class="trade-step">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:16px;">
                 <button type="button" class="trade-action-btn active" data-action="buy">KAUFEN</button>
