@@ -208,5 +208,147 @@
 
     .page-header {
         gap: var(--space-2);
+        margin-bottom: 12px !important;
     }
+
+    /* ─── Override inline grid-template-columns in Templates ─────────────
+       dashboard/portfolio/analysis setzen per Inline-Style 3er- oder 4er-
+       Grids, die auf Mobile unlesbar wären. Mit [style*="grid-template"]
+       + !important gewinnt mobile.css gegen die Inline-Regel. */
+
+    .kpi-grid,
+    .kpi-grid[style*="grid-template-columns"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+        margin-bottom: 10px !important;
+    }
+
+    .charts-grid,
+    .charts-grid[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* Analysis hat 4er- und 3er-Grids via inline-style */
+    [style*="grid-template-columns: repeat(4, 1fr)"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    [style*="grid-template-columns: repeat(3, 1fr)"] {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* ─── KPI-Hero wird stacked, nicht side-by-side ────────────────────── */
+
+    .kpi-hero {
+        grid-template-columns: 1fr !important;
+        padding: 16px 18px !important;
+        gap: 6px !important;
+        margin-bottom: 10px !important;
+    }
+    .kpi-hero-value {
+        font-size: 26px !important;
+        line-height: 1.1 !important;
+    }
+    .kpi-hero-spark {
+        text-align: left !important;
+        min-width: 0 !important;
+        opacity: 0.7;
+    }
+    .kpi-hero-label {
+        margin-bottom: 2px !important;
+    }
+
+    /* Hero-Greeting: knapp halten */
+    .hero-greeting {
+        font-size: 15px !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* ─── Cards kompakter ───────────────────────────────────────────────── */
+
+    .card {
+        padding: 14px !important;
+        border-radius: var(--radius-md) !important;
+    }
+    .kpi-card {
+        padding: 10px 12px !important;
+    }
+    .kpi-card .kpi-value {
+        font-size: 17px !important;
+    }
+    .card-title {
+        margin-bottom: 10px !important;
+        font-size: 11px !important;
+    }
+
+    /* ─── Chart-Heights: fest gesetzte Inline-Heights auf Mobile kleiner ─ */
+
+    #allocationChart { height: 240px !important; }
+    #tvChart         { height: 200px !important; }
+    .chart-container[style*="height: 340"],
+    .chart-container[style*="height: 320"],
+    .chart-container[style*="height: 300"] { height: 210px !important; }
+    #regionChart, #sectorChart   { height: 200px !important; }
+    #sectorPie, #regionPie, #accountPie { height: 190px !important; }
+    #perfRangeChart  { height: 280px !important; }
+    #heatmapChart    { min-height: 180px !important; }
+
+    /* ApexCharts legend kompakter */
+    .apexcharts-legend {
+        font-size: 10px !important;
+        margin-top: 4px !important;
+    }
+    .apexcharts-legend-text {
+        font-size: 10px !important;
+        padding-left: 4px !important;
+    }
+    .apexcharts-legend-marker {
+        width: 8px !important;
+        height: 8px !important;
+        margin-right: 4px !important;
+    }
+
+    /* ─── Index-Bar: etwas enger ───────────────────────────────────────── */
+
+    .index-bar {
+        margin-bottom: 10px !important;
+        padding: 6px 0 !important;
+        gap: 10px !important;
+    }
+
+    /* ─── Inter-Card spacing auf Mobile dramatisch reduzieren ────────── */
+
+    .card[style*="margin-top: var(--space-5)"],
+    .card[style*="margin-top: var(--space-4)"],
+    div[style*="margin-bottom: var(--space-5)"],
+    div[style*="margin-bottom: var(--space-4)"] {
+        margin-top: 10px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* ─── Cache-Status-Header klein halten ─────────────────────────────── */
+
+    .page-subtitle { font-size: 10px !important; }
+    .page-title    { font-size: 20px !important; margin-bottom: 0 !important; }
+
+    /* ─── Refresh-Button kompakt ──────────────────────────────────────── */
+
+    #refresh-btn {
+        padding: 10px 14px !important;
+        font-size: 12px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Ganz schmale iPhones (SE, 13 mini) → alle Grids 1-spaltig */
+    .kpi-grid,
+    .kpi-grid[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+    }
+    [style*="grid-template-columns: repeat(4, 1fr)"],
+    [style*="grid-template-columns: repeat(3, 1fr)"] {
+        grid-template-columns: 1fr !important;
+    }
+    .kpi-hero-value { font-size: 24px !important; }
 }

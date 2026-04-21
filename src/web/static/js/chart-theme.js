@@ -21,31 +21,41 @@
     yellow:      () => css('--warn'),
   };
 
+  const isMobile = () => window.matchMedia && window.matchMedia('(max-width: 767.98px)').matches;
+
   window.VeloraApex = {
     baseOptions() {
       const dark = isDark();
+      const mobile = isMobile();
       return {
         chart: {
           foreColor: window.VeloraChartTheme.text(),
           toolbar: { show: false },
           fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
           background: 'transparent',
-          animations: {
+          width: '100%',
+          // Mobile: Animationen reduzieren (weniger GPU-Last, schnelleres Initial-Paint)
+          animations: mobile ? {
+            enabled: false,
+          } : {
             enabled: true,
             easing: 'easeout',
             speed: 600,
             animateGradually: { enabled: true, delay: 80 },
           },
+          redrawOnWindowResize: true,
+          redrawOnParentResize: true,
         },
         theme: { mode: dark ? 'dark' : 'light' },
         grid: {
           borderColor: window.VeloraChartTheme.grid(),
           strokeDashArray: 4,
           xaxis: { lines: { show: false } },
+          padding: mobile ? { left: 4, right: 4, top: 0, bottom: 0 } : undefined,
         },
         tooltip: {
           theme: dark ? 'dark' : 'light',
-          style: { fontSize: '12px', fontFamily: 'Inter' },
+          style: { fontSize: mobile ? '11px' : '12px', fontFamily: 'Inter' },
           marker: { show: true },
         },
         colors: window.VeloraChartTheme.colors,
@@ -53,10 +63,21 @@
         legend: {
           labels: { colors: window.VeloraChartTheme.text() },
           fontFamily: 'Inter',
-          fontSize: '12px',
+          fontSize: mobile ? '10px' : '12px',
+          markers: { width: mobile ? 8 : 10, height: mobile ? 8 : 10 },
+          itemMargin: mobile ? { horizontal: 6, vertical: 2 } : undefined,
         },
         stroke: { curve: 'smooth', width: 2 },
+        responsive: [{
+          breakpoint: 480,
+          options: {
+            chart: { height: 200 },
+            legend: { fontSize: '9px', position: 'bottom' },
+            plotOptions: { pie: { donut: { size: '60%' } } },
+          },
+        }],
       };
     },
+    isMobile,
   };
 })();
