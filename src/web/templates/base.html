@@ -77,14 +77,56 @@
       if (!document.querySelector('.chat-layout')) {
         setTimeout(()=>location.reload(), 15*60*1000);
       }
-      // PWA: Service Worker registrieren (Phase 0).
+      // PWA: Service Worker registrieren + Update-Banner.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
+        window.addEventListener('load', async () => {
+          try {
+            const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+
+            // Bei Activate-Change: frisch laden, damit User garantiert neue Version sieht.
+            let reloaded = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (reloaded) return;
+              reloaded = true;
+              location.reload();
+            });
+
+            // Wenn eine neue Version im waiting-Zustand ist, Toast mit Reload-Action zeigen.
+            function showUpdateToast(waitingWorker) {
+              if (!window.toast || !window.toast.info) {
+                waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+                return;
+              }
+              window.toast.info('Neue Velora-Version verfügbar', {
+                detail: 'Tippe Neu laden um zu aktualisieren.',
+                duration: 12000,
+                action: { label: 'Neu laden', onClick: () => waitingWorker.postMessage({ type: 'SKIP_WAITING' }) },
+              });
+            }
+            if (reg.waiting) showUpdateToast(reg.waiting);
+            reg.addEventListener('updatefound', () => {
+              const nw = reg.installing;
+              if (!nw) return;
+              nw.addEventListener('statechange', () => {
+                if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                  showUpdateToast(nw);
+                }
+              });
+            });
+          } catch (err) {
             console.warn('Service Worker registration failed:', err);
-          });
+          }
         });
       }
+
+      // App-Badge API — iOS 16.4+, Chrome auf macOS/Android — rein unaufdringlich.
+      window.VeloraBadge = {
+        set(count) { if ('setAppBadge' in navigator) navigator.setAppBadge(count).catch(() => null); },
+        clear() { if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => null); },
+      };
+      // Beim SW-push wird hier kein direkter Event-Listener für Badge-Count zentral geführt
+      // (pro Kategorie müsste zählen); simple Alternative: beim Öffnen der PWA alles clearen.
+      window.addEventListener('focus', () => window.VeloraBadge.clear());
     </script>
 </body>
 </html>

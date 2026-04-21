@@ -99,6 +99,11 @@ templates.env.filters["number"] = format_number
 from src.chat.routes import router as chat_router
 app.include_router(chat_router)
 
+
+@app.get("/install", response_class=HTMLResponse)
+async def install_page(request: Request):
+    return templates.TemplateResponse(request, "install.html", _ctx(request, "install"))
+
 # PWA-Router (Manifest + Service Worker auf Root-Scope)
 from src.web.routes.pwa import router as pwa_router
 app.include_router(pwa_router)

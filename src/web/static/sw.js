@@ -8,9 +8,10 @@
  * Push-Handler folgt in Phase 3.
  */
 
-const VERSION = 'velora-0.1.0';
+const VERSION = 'velora-0.2.0';
 const STATIC_CACHE = `velora-static-${VERSION}`;
 const RUNTIME_CACHE = `velora-runtime-${VERSION}`;
+const API_CACHE = `velora-api-${VERSION}`;
 
 const PRECACHE = [
   '/',
@@ -19,11 +20,31 @@ const PRECACHE = [
   '/static/css/background.css',
   '/static/css/components.css',
   '/static/css/main.css',
+  '/static/css/responsive.css',
+  '/static/css/bottom-nav.css',
+  '/static/css/mobile.css',
   '/static/vendor/htmx.min.js',
+  '/static/vendor/apexcharts.min.js',
+  '/static/js/chart-theme.js',
+  '/static/js/haptics.js',
+  '/static/js/pull-refresh.js',
+  '/static/js/toast.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   '/static/apple-touch-icon.png',
 ];
+
+// API-Endpoints, die stale-while-revalidate nutzen (schnelles Rendering aus Cache,
+// im Hintergrund wird frischer Request gefetcht).
+const SWR_PATHS = new Set([
+  '/api/portfolio/summary',
+  '/api/portfolio/history',
+  '/api/market/indices',
+  '/api/market/macro',
+  '/api/briefings',
+  '/api/recommendations',
+  '/api/calendar',
+]);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -74,7 +95,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(req, { fallbackToCache: true }));
+    if (SWR_PATHS.has(url.pathname)) {
+      event.respondWith(staleWhileRevalidate(req));
+    } else {
+      event.respondWith(networkFirst(req, { fallbackToCache: true }));
+    }
     return;
   }
 
@@ -120,6 +145,20 @@ async function networkFirst(req, { fallbackToCache = false, offlinePage = null }
     }
     throw err;
   }
+}
+
+async function staleWhileRevalidate(req) {
+  const cache = await caches.open(API_CACHE);
+  const cached = await cache.match(req);
+  const networkFetch = fetch(req)
+    .then((res) => {
+      if (res.ok) cache.put(req, res.clone()).catch(() => null);
+      return res;
+    })
+    .catch(() => null);
+  // Wenn Cache da: sofort zurück, Network läuft im Hintergrund weiter.
+  // Wenn kein Cache: auf Network warten.
+  return cached || networkFetch || new Response('offline', { status: 504 });
 }
 
 self.addEventListener('message', (event) => {
