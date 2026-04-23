@@ -175,18 +175,26 @@ def _spawn_briefing_subprocess():
 
     Der laufende FastAPI-Prozess darf nicht blockieren — run_briefing ruft
     intern synchrone subprocess-/HTTP-Calls, die den Event-Loop anhalten.
+    Stdout/Stderr landen in logs/briefing_<ts>.log (NICHT /dev/null!), damit
+    Fehler wie abgelaufene Claude-CLI-Tokens debuggbar bleiben.
     """
     import subprocess
     import sys
+    from datetime import datetime
     project_root = Path(__file__).parent.parent.parent
+    log_dir = project_root / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_path = log_dir / f"briefing_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     try:
+        log_fd = open(log_path, "w")
         subprocess.Popen(
             [sys.executable, "-m", "src.main", "briefing"],
             cwd=str(project_root),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=log_fd,
+            stderr=subprocess.STDOUT,
             start_new_session=True,
         )
+        logger.info(f"Briefing-Subprocess gestartet → {log_path}")
     except Exception:
         logger.exception("Failed to spawn briefing subprocess")
 

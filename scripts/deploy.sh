@@ -62,6 +62,9 @@ scp "$LOCAL_DIR"/requirements.txt $REMOTE:$REMOTE_DIR/
 scp "$LOCAL_DIR"/setup.py $REMOTE:$REMOTE_DIR/
 scp "$LOCAL_DIR"/scripts/setup_rockpi.sh $REMOTE:$REMOTE_DIR/scripts/
 scp "$LOCAL_DIR"/scripts/system_update.sh $REMOTE:$REMOTE_DIR/scripts/ 2>/dev/null || true
+scp "$LOCAL_DIR"/scripts/claude_keepalive.sh $REMOTE:$REMOTE_DIR/scripts/ 2>/dev/null || true
+ssh $REMOTE "mkdir -p $REMOTE_DIR/scripts/systemd"
+scp "$LOCAL_DIR"/scripts/systemd/*.service "$LOCAL_DIR"/scripts/systemd/*.timer $REMOTE:$REMOTE_DIR/scripts/systemd/ 2>/dev/null || true
 ssh $REMOTE "chmod +x $REMOTE_DIR/scripts/*.sh 2>/dev/null || true"
 
 # 5. Live-State-Files NUR mit --with-config kopieren.

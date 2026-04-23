@@ -35,7 +35,7 @@ from src.analysis.prompt import (
     build_portfolio_summary,
     MONTHLY_REPORT_TEMPLATE,
 )
-from src.analysis.claude import ask_claude, strip_json_block
+from src.analysis.claude import ask_claude, strip_json_block, ClaudeCLIError
 from src.analysis.memory import (
     get_context_for_prompt,
     save_briefing_summary,
@@ -323,7 +323,16 @@ async def run_ticker_analysis(ticker: str, update=None, context=None):
     news = search_position_news(price_data.get("ticker", ticker), ticker, brave_key) if brave_key else []
 
     prompt = build_ticker_analysis_prompt(ticker, ticker_data, portfolio, market_data, news)
-    result = ask_claude(build_system_prompt(load_settings(), load_portfolio()), prompt)
+    try:
+        result = ask_claude(build_system_prompt(load_settings(), load_portfolio()), prompt)
+    except ClaudeCLIError as e:
+        logger.error(f"Ticker-Analyse {ticker} fehlgeschlagen: {e}")
+        tg = settings.get("telegram", {})
+        if update:
+            await update.message.reply_text(f"⚠️ Analyse fehlgeschlagen: {e}")
+        elif tg.get("bot_token") and tg.get("chat_id"):
+            await send_error_alert(tg["bot_token"], tg["chat_id"], f"Ticker-Analyse {ticker}: {e}")
+        return
     analysis_text = strip_json_block(result["text"])
 
     if update:
@@ -381,8 +390,12 @@ Du führst ein Gespräch — beziehe dich auf den Chat-Verlauf wenn relevant.
 
 Antworte direkt, kurz und hilfreich auf Deutsch. Telegram-HTML-Format. Kein Geschwafel."""
 
-        result = ask_claude(build_system_prompt(load_settings(), load_portfolio()), prompt)
-        reply = strip_json_block(result["text"])
+        try:
+            result = ask_claude(build_system_prompt(load_settings(), load_portfolio()), prompt)
+            reply = strip_json_block(result["text"])
+        except ClaudeCLIError as e:
+            logger.error(f"Free-Chat fehlgeschlagen: {e}")
+            reply = f"⚠️ Kann gerade nicht antworten: {e}"
         add_message("assistant", reply[:2000])
         await send_briefing(tg["bot_token"], str(update.effective_chat.id), reply)
 
